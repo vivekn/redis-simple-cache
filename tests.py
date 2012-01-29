@@ -2,12 +2,12 @@
 #~~~~~~~~~~~~~~~~~~~
 from simplecache import SimpleCache, cache_it, cache_it_json
 from simplejson import dumps
-from unittest import TestCase
+from unittest import TestCase, main
 
 class SimpleCacheTest(TestCase):
 
     def setUp(self):
-        self.c = SimpleCache(10) #Cache that has a maximum limit of 1000 keys
+        self.c = SimpleCache(10) #Cache that has a maximum limit of 10 keys
 
     def test_store_retrieve(self):
         self.c.store("foo", "bar")
@@ -30,12 +30,15 @@ class SimpleCacheTest(TestCase):
     def test_decorator_json(self):
         @cache_it_json
         def excess_4(n):
+            print "Calculating value"
             return {str(n):n+4}
-        print excess_4(31)
+        print excess_4(0)
+        print excess_4(0)
+        self.assertEqual(excess_4(0), excess_4(0))
 
     def test_cache_limit(self):
         for i in range(100):
             self.c.store("foo%d" % i, "foobar")
             self.failUnless(len(self.c) <= 10)
 
-
+main()

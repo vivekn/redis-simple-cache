@@ -1,11 +1,10 @@
 """
 A simple redis-cache interface for storing python objects.
 """
-from simplejson import loads, dumps
-from django.utils.encoding import smart_unicode
+from json import loads, dumps
 import redis
 
-connection = redis.Redis(host=None, port=None, password=None)
+connection = redis.Redis()
 
 class CacheMissException(Exception):
     pass
@@ -17,9 +16,11 @@ class SimpleCache(object):
 
     def store(self, key, value):
         """ Stores a value after checking for space constraints and freeing up space if required """
+        key = to_unicode(key)
+        value = to_unicode(value)
         if value is not None:
             while connection.scard('SimpleCache:keys') >= self.limit:
-                deleted = connection.spop('SimpleCache:keys')
+                connection.spop('SimpleCache:keys')
                 connection.delete("SimpleCache::%s" % key)
 
             connection.set('SimpleCache::%s' % key, value)
@@ -29,12 +30,13 @@ class SimpleCache(object):
         self.store(key, dumps(value))
 
     def get(self, key):
+        key = to_unicode(key)
         if key in self:
             return connection.get("SimpleCache::%s" % key)
         raise CacheMissException
 
     def get_json(self, key):
-        return loads(smart_unicode(self.get(key)))
+        return loads(self.get(key))
 
     def __contains__(self, key):
         return connection.sismember("SimpleCache:keys", key)
@@ -48,12 +50,14 @@ def cache_it (function):
     Apply this decorator to cache any function returning a value.
     """
     cache = SimpleCache()
-    def func(key):
-        if key in cache:
-            return cache.get('%s:%s' % (function.__name__, key))
+    def func(*args):
+        key = dumps(args)
+        cache_key = '%s:%s' % (function.__name__, key)
+        if cache_key in cache:
+            return cache.get(cache_key)
         else:
-            result = function(key)
-            cache.store('%s:%s' % (function.__name__, key), result)
+            result = function(*args)
+            cache.store(cache_key, result)
             return result
     return func
 
@@ -64,11 +68,19 @@ def cache_it_json (function):
     in the database. Useful for types like list, tuple, dict, etc.
     """
     cache = SimpleCache()
-    def func(key):
-        if key in cache:
-            return cache.get_json('%s:%s' % (function.__name__, key))
+    def func(*args):
+        key = dumps(args)
+        cache_key = '%s:%s' % (function.__name__, key)
+        if cache_key in cache:
+            return cache.get_json(cache_key)
         else:
-            result = function(key)
-            cache.store_json('%s:%s' % (function.__name__, key), result)
+            result = function(*args)
+            cache.store_json(cache_key, result)
             return result
     return func
+
+def to_unicode(obj, encoding='utf-8'):
+     if isinstance(obj, basestring):
+         if not isinstance(obj, unicode):
+             obj = unicode(obj, encoding)
+     return obj
