@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from simplecache import SimpleCache, cache_it, cache_it_json, connection, CacheMissException
+from simplecache import SimpleCache, cache_it, cache_it_json, connection, CacheMissException, ExpiredKeyException
 from unittest import TestCase, main
 
 
@@ -17,6 +17,15 @@ class SimpleCacheTest(TestCase):
 
     def setUp(self):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
+
+    def test_expire(self):
+        import time
+
+        quick_c = SimpleCache()
+        quick_c.store("foo", "bar", expire=0.001)
+        time.sleep(0.01)
+        self.assertRaises(ExpiredKeyException, quick_c.get, "foo")
+        quick_c.flush()
 
     def test_miss(self):
         self.assertRaises(CacheMissException, self.c.get, "blablabla")

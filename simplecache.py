@@ -14,12 +14,17 @@ class CacheMissException(Exception):
     pass
 
 
+class ExpiredKeyException(Exception):
+    pass
+
+
 class SimpleCache(object):
 
-    def __init__(self, limit=1000):
+    def __init__(self, limit=1000, expire=60 * 60 * 24):
         self.limit = limit  # No of json encoded strings to cache
+        self.expire = expire  # Time to keys to expire in seconds
         
-    def store(self, key, value):
+    def store(self, key, value, expire=None):
         """ Stores a value after checking for space constraints and freeing up space if required """
         key = to_unicode(key)
         value = to_unicode(value)
@@ -29,7 +34,9 @@ class SimpleCache(object):
             connection.delete("SimpleCache::%s" % del_key)
 
         pipe = connection.pipeline()
-        pipe.set('SimpleCache::%s' % key, value)
+        if expire is None:
+            expire = self.expire
+        pipe.setex('SimpleCache::%s' % key, expire, value)
         pipe.sadd("SimpleCache:keys", key)
         pipe.execute()
 
@@ -43,9 +50,9 @@ class SimpleCache(object):
         key = to_unicode(key)
         if key in self:
             val = connection.get("SimpleCache::%s" % key)
-            if val is None:  # redis deleted the key
+            if val is None:  # expired key
                 connection.srem('SimpleCache:keys', key)
-                raise CacheMissException
+                raise ExpiredKeyException
             else:
                 return val
         raise CacheMissException
@@ -90,7 +97,7 @@ def cache_it(function):
         if cache_key in cache:
             try:
                 return cache.get_pickle(cache_key)
-            except CacheMissException:
+            except (ExpiredKeyException, CacheMissException) as e:
                 pass
     
         result = function(*args)
@@ -113,7 +120,7 @@ def cache_it_json(function):
         if cache_key in cache:
             try:
                 return cache.get_json(cache_key)
-            except CacheMissException:
+            except (ExpiredKeyException, CacheMissException) as e:
                 pass
             
         result = function(*args)
