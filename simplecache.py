@@ -1,42 +1,67 @@
 """
 A simple redis-cache interface for storing python objects.
 """
-from json import loads, dumps
+from functools import wraps
+import pickle
+import json
+import base64
 import redis
 
-connection = redis.Redis()
+connection = redis.StrictRedis()
+
 
 class CacheMissException(Exception):
     pass
 
+
+class ExpiredKeyException(Exception):
+    pass
+
+
 class SimpleCache(object):
 
-    def __init__(self, limit = 1000):
-        self.limit = limit #No of json encoded strings to cache
-
-    def store(self, key, value):
+    def __init__(self, limit=1000, expire=60 * 60 * 24):
+        self.limit = limit  # No of json encoded strings to cache
+        self.expire = expire  # Time to keys to expire in seconds
+        
+    def store(self, key, value, expire=None):
         """ Stores a value after checking for space constraints and freeing up space if required """
         key = to_unicode(key)
         value = to_unicode(value)
-        if value is not None:
-            while connection.scard('SimpleCache:keys') >= self.limit:
-                connection.spop('SimpleCache:keys')
-                connection.delete("SimpleCache::%s" % key)
+    
+        while connection.scard('SimpleCache:keys') >= self.limit:
+            del_key = connection.spop('SimpleCache:keys')
+            connection.delete("SimpleCache::%s" % del_key)
 
-            connection.set('SimpleCache::%s' % key, value)
-            connection.sadd("SimpleCache:keys", key)
+        pipe = connection.pipeline()
+        if expire is None:
+            expire = self.expire
+        pipe.setex('SimpleCache::%s' % key, expire, value)
+        pipe.sadd("SimpleCache:keys", key)
+        pipe.execute()
 
     def store_json(self, key, value):
-        self.store(key, dumps(value))
+        self.store(key, json.dumps(value))
+
+    def store_pickle(self, key, value):
+        self.store(key, base64.b64encode(pickle.dumps(value)))
 
     def get(self, key):
         key = to_unicode(key)
         if key in self:
-            return connection.get("SimpleCache::%s" % key)
+            val = connection.get("SimpleCache::%s" % key)
+            if val is None:  # expired key
+                connection.srem('SimpleCache:keys', key)
+                raise ExpiredKeyException
+            else:
+                return val
         raise CacheMissException
 
     def get_json(self, key):
-        return loads(self.get(key))
+        return json.loads(self.get(key))
+
+    def get_pickle(self, key):
+        return pickle.loads(base64.b64decode(self.get(key)))
 
     def __contains__(self, key):
         return connection.sismember("SimpleCache:keys", key)
@@ -44,43 +69,68 @@ class SimpleCache(object):
     def __len__(self):
         return connection.scard("SimpleCache:keys")
 
+    def keys(self):
+        keys = connection.keys("SimpleCache::*")
+        return keys
 
-def cache_it (function):
+    def flush(self):
+        keys = self.keys()
+        pipe = connection.pipeline()
+        for key in keys:
+            key_suffix = key[len("SimpleCache::"):]
+            pipe.srem('SimpleCache:keys', key_suffix)
+            pipe.delete(key)
+        pipe.execute()
+
+
+def cache_it(function):
     """
-    Apply this decorator to cache any function returning a value.
+    Apply this decorator to cache any function returning a value. Arguments and function result
+    must be pickleable.
     """
     cache = SimpleCache()
+    
+    @wraps(function)
     def func(*args):
-        key = dumps(args)
+        key = pickle.dumps(args)
         cache_key = '%s:%s' % (function.__name__, key)
         if cache_key in cache:
-            return cache.get(cache_key)
-        else:
-            result = function(*args)
-            cache.store(cache_key, result)
-            return result
+            try:
+                return cache.get_pickle(cache_key)
+            except (ExpiredKeyException, CacheMissException) as e:
+                pass
+    
+        result = function(*args)
+        cache.store_pickle(cache_key, result)
+        return result
     return func
 
 
-def cache_it_json (function):
+def cache_it_json(function):
     """
     A decorator similar to cache_it, but it serializes the return value to json, while storing
     in the database. Useful for types like list, tuple, dict, etc.
     """
     cache = SimpleCache()
+    
+    @wraps(function)
     def func(*args):
-        key = dumps(args)
+        key = json.dumps(args)
         cache_key = '%s:%s' % (function.__name__, key)
         if cache_key in cache:
-            return cache.get_json(cache_key)
-        else:
-            result = function(*args)
-            cache.store_json(cache_key, result)
-            return result
+            try:
+                return cache.get_json(cache_key)
+            except (ExpiredKeyException, CacheMissException) as e:
+                pass
+            
+        result = function(*args)
+        cache.store_json(cache_key, result)
+        return result
     return func
 
+
 def to_unicode(obj, encoding='utf-8'):
-     if isinstance(obj, basestring):
-         if not isinstance(obj, unicode):
-             obj = unicode(obj, encoding)
-     return obj
+    if isinstance(obj, basestring):
+        if not isinstance(obj, unicode):
+            obj = unicode(obj, encoding)
+    return obj
