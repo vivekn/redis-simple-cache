@@ -1,8 +1,16 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from simplecache import connection, SimpleCache, cache_it, cache_it_json
-from simplejson import dumps
+from simplecache import SimpleCache, cache_it, cache_it_json, connection, CacheMissException
 from unittest import TestCase, main
+
+
+class ComplexNumber(object):  # used in pickle test
+    def __init__(self, real, imag):
+        self.real = real
+        self.imag = imag
+
+    def __eq__(self, other):
+        return self.real == other.real and self.imag == other.imag
 
 
 class SimpleCacheTest(TestCase):
@@ -10,31 +18,44 @@ class SimpleCacheTest(TestCase):
     def setUp(self):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
 
+    def test_miss(self):
+        self.assertRaises(CacheMissException, self.c.get, "blablabla")
+
     def test_store_retrieve(self):
         self.c.store("foo", "bar")
         foo = self.c.get("foo")
         self.assertEqual(foo, "bar")
 
     def test_json(self):
-        payload = {'example': "data"}
-        json_str = dumps(payload)
-        self.c.store_json('json', payload)
-        self.assertEqual(self.c.get('json'), json_str)
+        payload = {"example": "data"}
+        self.c.store_json("json", payload)
+        self.assertEqual(self.c.get_json("json"), payload)
+
+    def test_pickle(self):
+        payload = ComplexNumber(3,4)
+        self.c.store_pickle("pickle", payload)
+        self.assertEqual(self.c.get_pickle("pickle"), payload)
 
     def test_decorator(self):
         @cache_it
         def excess_3(n):
-            return str(n + 3)
-        self.assertEqual(excess_3(3), '6')
+            return n + 3
+        self.assertEqual(excess_3(3), excess_3(3))
 
     def test_decorator_json(self):
         @cache_it_json
         def excess_4(n):
-            print "Calculating value"
             return {str(n): n + 4}
-        print excess_4(0)
-        print excess_4(0)
         self.assertEqual(excess_4(0), excess_4(0))
+
+    def test_decorator_complex_type(self):
+        import math
+
+        @cache_it
+        def my_abs(c):
+            return math.sqrt(c.real * c.real + c.imag * c.imag)
+        self.assertEqual(my_abs(ComplexNumber(3,4)), abs(complex(3,4)))
+        self.assertEqual(my_abs(ComplexNumber(3,4)), abs(complex(3,4)))
 
     def test_cache_limit(self):
         for i in range(100):
