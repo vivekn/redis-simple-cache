@@ -4,7 +4,7 @@ A simple redis-cache interface for storing python objects.
 from json import loads, dumps
 import redis
 
-connection = redis.Redis()
+connection = redis.StrictRedis()
 
 
 class CacheMissException(Exception):
