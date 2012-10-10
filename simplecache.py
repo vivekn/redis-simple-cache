@@ -20,8 +20,8 @@ class SimpleCache(object):
         value = to_unicode(value)
         if value is not None:
             while connection.scard('SimpleCache:keys') >= self.limit:
-                connection.spop('SimpleCache:keys')
-                connection.delete("SimpleCache::%s" % key)
+                del_key = connection.spop('SimpleCache:keys')
+                connection.delete("SimpleCache::%s" % del_key)
 
             connection.set('SimpleCache::%s' % key, value)
             connection.sadd("SimpleCache:keys", key)
@@ -43,6 +43,19 @@ class SimpleCache(object):
 
     def __len__(self):
         return connection.scard("SimpleCache:keys")
+
+    def keys(self):
+        keys = connection.keys("SimpleCache::*")
+        return keys
+
+    def flush(self):
+        keys = self.keys()
+        pipe = connection.pipeline()
+        for key in keys:
+            key_suffix = key[len("SimpleCache::"):]
+            pipe.srem('SimpleCache:keys', key_suffix)
+            pipe.delete(key)
+        pipe.execute()
 
 
 def cache_it (function):

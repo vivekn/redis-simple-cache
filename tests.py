@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from simplecache import SimpleCache, cache_it, cache_it_json
+from simplecache import connection, SimpleCache, cache_it, cache_it_json
 from simplejson import dumps
 from unittest import TestCase, main
 
@@ -40,5 +40,20 @@ class SimpleCacheTest(TestCase):
         for i in range(100):
             self.c.store("foo%d" % i, "foobar")
             self.failUnless(len(self.c) <= 10)
+            self.failUnless(len(self.c.keys()) <= 10)
+
+    def test_flush(self):
+        connection.set("will_not_be_deleted", '42')
+        self.c.store("will_be_deleted", '10')
+        len_before = len(self.c)
+        self.c.flush()
+        len_after = len(self.c)
+        self.assertEqual(len_before, 1)
+        self.assertEqual(len_after, 0)
+        self.assertEqual(connection.get("will_not_be_deleted"), '42')
+        connection.delete("will_not_be_deleted", '42')
+
+    def tearDown(self):
+        self.c.flush()
 
 main()
