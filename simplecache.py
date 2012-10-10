@@ -6,13 +6,15 @@ import redis
 
 connection = redis.Redis()
 
+
 class CacheMissException(Exception):
     pass
 
+
 class SimpleCache(object):
 
-    def __init__(self, limit = 1000):
-        self.limit = limit #No of json encoded strings to cache
+    def __init__(self, limit=1000):
+        self.limit = limit  # No of json encoded strings to cache
 
     def store(self, key, value):
         """ Stores a value after checking for space constraints and freeing up space if required """
@@ -58,11 +60,12 @@ class SimpleCache(object):
         pipe.execute()
 
 
-def cache_it (function):
+def cache_it(function):
     """
     Apply this decorator to cache any function returning a value.
     """
     cache = SimpleCache()
+    
     def func(*args):
         key = dumps(args)
         cache_key = '%s:%s' % (function.__name__, key)
@@ -75,12 +78,13 @@ def cache_it (function):
     return func
 
 
-def cache_it_json (function):
+def cache_it_json(function):
     """
     A decorator similar to cache_it, but it serializes the return value to json, while storing
     in the database. Useful for types like list, tuple, dict, etc.
     """
     cache = SimpleCache()
+    
     def func(*args):
         key = dumps(args)
         cache_key = '%s:%s' % (function.__name__, key)
@@ -92,8 +96,9 @@ def cache_it_json (function):
             return result
     return func
 
+
 def to_unicode(obj, encoding='utf-8'):
-     if isinstance(obj, basestring):
-         if not isinstance(obj, unicode):
-             obj = unicode(obj, encoding)
-     return obj
+    if isinstance(obj, basestring):
+        if not isinstance(obj, unicode):
+            obj = unicode(obj, encoding)
+    return obj

@@ -4,19 +4,19 @@ from simplecache import connection, SimpleCache, cache_it, cache_it_json
 from simplejson import dumps
 from unittest import TestCase, main
 
+
 class SimpleCacheTest(TestCase):
 
     def setUp(self):
-        self.c = SimpleCache(10) #Cache that has a maximum limit of 10 keys
+        self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
 
     def test_store_retrieve(self):
         self.c.store("foo", "bar")
         foo = self.c.get("foo")
         self.assertEqual(foo, "bar")
 
-
     def test_json(self):
-        payload = { 'example': "data" }
+        payload = {'example': "data"}
         json_str = dumps(payload)
         self.c.store_json('json', payload)
         self.assertEqual(self.c.get('json'), json_str)
@@ -31,7 +31,7 @@ class SimpleCacheTest(TestCase):
         @cache_it_json
         def excess_4(n):
             print "Calculating value"
-            return {str(n):n+4}
+            return {str(n): n + 4}
         print excess_4(0)
         print excess_4(0)
         self.assertEqual(excess_4(0), excess_4(0))
