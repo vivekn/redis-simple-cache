@@ -1,6 +1,7 @@
 """
 A simple redis-cache interface for storing python objects.
 """
+from functools import wraps
 import pickle
 import json
 import base64
@@ -82,6 +83,7 @@ def cache_it(function):
     """
     cache = SimpleCache()
     
+    @wraps(function)
     def func(*args):
         key = pickle.dumps(args)
         cache_key = '%s:%s' % (function.__name__, key)
@@ -104,6 +106,7 @@ def cache_it_json(function):
     """
     cache = SimpleCache()
     
+    @wraps(function)
     def func(*args):
         key = json.dumps(args)
         cache_key = '%s:%s' % (function.__name__, key)
