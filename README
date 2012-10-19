@@ -5,4 +5,5 @@ to any function to cache its return values.
 Check out examples in the tests.py file.
 
 AUTHOR: Vivek Narayanan
+FORKED AND IMPROVED BY: Flávio Juvenal
 LICENSE: BSD
