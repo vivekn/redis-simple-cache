@@ -22,8 +22,8 @@ class SimpleCacheTest(TestCase):
         import time
 
         quick_c = SimpleCache()
-        quick_c.store("foo", "bar", expire=0.001)
-        time.sleep(0.01)
+        quick_c.store("foo", "bar", expire=1)
+        time.sleep(1.1)
         self.assertRaises(ExpiredKeyException, quick_c.get, "foo")
         quick_c.flush()
 
