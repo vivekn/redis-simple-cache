@@ -63,7 +63,7 @@ class SimpleCacheTest(TestCase):
         import random
 
         mutable = {}
-        @cache_it()
+        @cache_it_json()
         def set_key(n):
             mutable[str(random.random())] = n
             return mutable
