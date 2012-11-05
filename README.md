@@ -1,0 +1,51 @@
+# redis-simple-cache
+redis-simple-cache is a pythonic interface for creating a cache over redis.  
+It provides simple decorators that can be added to any function to cache its return values.
+
+Requirements:
+-------------
+redis 2.6.2  
+redis-py 2.7.1 (see requirements.txt file)
+
+Usage:
+------
+
+    from simplecache import cache_it
+
+    @cache_it(limit=1000, expire=60 * 60 * 24)
+    def fib(n):
+        if n == 0:
+            return 0
+        elif n == 1:
+            return 1
+        else:
+            return fib(n-1) + fib(n-2)
+
+`limit` is the maximum number of keys, `expire` is the expire time in seconds.  
+It is always recommended to specify a expire time, since by default redis-server will only remove keys with an expire time set. But if you wish your keys to never expire, set `expire` to `None`.  
+**Note that function arguments and result must be pickleable, since cache_it uses the pickle module.**
+
+It is also possible to use redis-simple-cache as a object-oriented cache:
+        
+    >> from simplecache import SimpleCache
+    >> c = SimpleCache(10)  # cache that has a maximum limit of 10 keys
+    >> c.store("foo", "bar")
+    >> c.get("foo")
+    "bar" 
+    >> "foo" in c  # efficient membership test, time-complexity O(1)
+    True
+    >> len(c)  # efficient cardinality calculation, time-complexity O(1)
+    1
+    >> c.keys()  # returns all keys, time-complexity O(N) with N being the number of keys in the database
+    ["SimpleCache::foo"]
+    >> c.flush()  # flushes the cache, time-complexity O(N) with N being the number of keys in the database
+    >> "foo" in c
+    False
+    >> len(c)
+    0
+
+Check out more examples in the tests.py file.
+
+AUTHOR: Vivek Narayanan  
+FORKED AND IMPROVED BY: Flávio Juvenal  
+LICENSE: BSD

@@ -46,25 +46,46 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(self.c.get_pickle("pickle"), payload)
 
     def test_decorator(self):
-        @cache_it
-        def excess_3(n):
-            return n + 3
-        self.assertEqual(excess_3(3), excess_3(3))
+        mutable = []
+        @cache_it()
+        def append(n):
+            mutable.append(n)
+            return mutable
+        append(1)
+        len_before = len(mutable)
+        mutable_cached = append(1)
+        len_after = len(mutable)
+        self.assertEqual(len_before, len_after)
+        self.assertNotEqual(id(mutable), id(mutable_cached))
+        self.assertEqual(mutable, mutable_cached)
 
     def test_decorator_json(self):
-        @cache_it_json
-        def excess_4(n):
-            return {str(n): n + 4}
-        self.assertEqual(excess_4(0), excess_4(0))
+        import random
+
+        mutable = {}
+        @cache_it()
+        def set_key(n):
+            mutable[str(random.random())] = n
+            return mutable
+        set_key('a')
+        len_before = len(mutable)
+        mutable_cached = set_key('a')
+        len_after = len(mutable)
+        self.assertEqual(len_before, len_after)
+        self.assertNotEqual(id(mutable), id(mutable_cached))
+        self.assertEqual(mutable, mutable_cached)
 
     def test_decorator_complex_type(self):
         import math
 
-        @cache_it
-        def my_abs(c):
-            return math.sqrt(c.real * c.real + c.imag * c.imag)
-        self.assertEqual(my_abs(ComplexNumber(3,4)), abs(complex(3,4)))
-        self.assertEqual(my_abs(ComplexNumber(3,4)), abs(complex(3,4)))
+        @cache_it()
+        def add(x, y):
+            return ComplexNumber(x.real + y.real, x.imag + y.imag)
+        result = add(ComplexNumber(3,4), ComplexNumber(4,5))
+        result_cached = add(ComplexNumber(3,4), ComplexNumber(4,5))
+        self.assertNotEqual(id(result), id(result_cached))
+        self.assertEqual(result, result_cached)
+        self.assertEqual(result, complex(3,4) + complex(4,5))
 
     def test_cache_limit(self):
         for i in range(100):
