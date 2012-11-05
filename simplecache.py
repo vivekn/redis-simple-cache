@@ -83,50 +83,54 @@ class SimpleCache(object):
         pipe.execute()
 
 
-def cache_it(function):
+def cache_it(limit=1000, expire=60 * 60 * 24):
     """
     Apply this decorator to cache any function returning a value. Arguments and function result
     must be pickleable.
     """
-    cache = SimpleCache()
-    
-    @wraps(function)
-    def func(*args):
-        key = pickle.dumps(args)
-        cache_key = '%s:%s' % (function.__name__, key)
-        if cache_key in cache:
-            try:
-                return cache.get_pickle(cache_key)
-            except (ExpiredKeyException, CacheMissException) as e:
-                pass
-    
-        result = function(*args)
-        cache.store_pickle(cache_key, result)
-        return result
-    return func
+    def decorator(function):
+        cache = SimpleCache(limit, expire)
+        
+        @wraps(function)
+        def func(*args):
+            key = pickle.dumps(args)
+            cache_key = '%s:%s' % (function.__name__, key)
+            if cache_key in cache:
+                try:
+                    return cache.get_pickle(cache_key)
+                except (ExpiredKeyException, CacheMissException) as e:
+                    pass
+        
+            result = function(*args)
+            cache.store_pickle(cache_key, result)
+            return result
+        return func
+    return decorator
 
 
-def cache_it_json(function):
+def cache_it_json(limit=1000, expire=60 * 60 * 24):
     """
     A decorator similar to cache_it, but it serializes the return value to json, while storing
     in the database. Useful for types like list, tuple, dict, etc.
     """
-    cache = SimpleCache()
-    
-    @wraps(function)
-    def func(*args):
-        key = json.dumps(args)
-        cache_key = '%s:%s' % (function.__name__, key)
-        if cache_key in cache:
-            try:
-                return cache.get_json(cache_key)
-            except (ExpiredKeyException, CacheMissException) as e:
-                pass
-            
-        result = function(*args)
-        cache.store_json(cache_key, result)
-        return result
-    return func
+    def decorator(function):
+        cache = SimpleCache()
+        
+        @wraps(function)
+        def func(*args):
+            key = json.dumps(args)
+            cache_key = '%s:%s' % (function.__name__, key)
+            if cache_key in cache:
+                try:
+                    return cache.get_json(cache_key)
+                except (ExpiredKeyException, CacheMissException) as e:
+                    pass
+                
+            result = function(*args)
+            cache.store_json(cache_key, result)
+            return result
+        return func
+    return decorator
 
 
 def to_unicode(obj, encoding='utf-8'):
