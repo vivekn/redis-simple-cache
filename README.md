@@ -42,14 +42,14 @@ It is also possible to use redis-simple-cache as a object-oriented cache:
     >> c = SimpleCache(10)  # cache that has a maximum limit of 10 keys
     >> c.store("foo", "bar")
     >> c.get("foo")
-    "bar" 
+    'bar'
     >> "foo" in c  # efficient membership test, time-complexity O(1)
     True
     >> len(c)  # efficient cardinality calculation, time-complexity O(1)
     1
-    >> c.keys()  # returns all keys, time-complexity O(N) with N being the number of keys in the database
-    ["SimpleCache::foo"]
-    >> c.flush()  # flushes the cache, time-complexity O(N) with N being the number of keys in the database
+    >> c.keys()  # returns all keys, time-complexity O(N) with N being the cache c cardinality
+    set(['foo'])
+    >> c.flush()  # flushes the cache, time-complexity O(N) with N being the cache c cardinality
     >> "foo" in c
     False
     >> len(c)

@@ -77,8 +77,7 @@ class SimpleCache(object):
         return connection.scard(self.get_set_name())
 
     def keys(self):
-        keys = connection.keys(self.make_key("*"))
-        return keys
+        return connection.smembers(self.get_set_name())
 
     def flush(self):
         keys = self.keys()
