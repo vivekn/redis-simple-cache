@@ -7,6 +7,17 @@ Requirements:
 redis 2.6.2  
 redis-py 2.7.1 (see requirements.txt file)
 
+Installation:
+-------------
+
+    pip install redis-simple-cache
+
+or
+
+    git clone git://github.com/fjsj/redis-simple-cache.git
+    cd redis-simple-cache
+    python setup.py install
+
 Usage:
 ------
 
