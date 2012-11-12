@@ -83,12 +83,9 @@ class SimpleCache(object):
     def flush(self):
         keys = self.keys()
         pipe = connection.pipeline()
-        prefix_len = len(self.make_key(""))
-        set_name = self.get_set_name()
         for key in keys:
-            key_suffix = key[prefix_len:]
-            pipe.srem(set_name, key_suffix)
             pipe.delete(key)
+        pipe.delete(self.get_set_name())
         pipe.execute()
 
 
