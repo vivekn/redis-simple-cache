@@ -10,7 +10,7 @@ redis-py 2.7.1 (see requirements.txt file)
 Usage:
 ------
 
-    from simplecache import cache_it
+    from redis_cache import cache_it
 
     @cache_it(limit=1000, expire=60 * 60 * 24)
     def fib(n):
@@ -27,7 +27,7 @@ It is always recommended to specify a expire time, since by default redis-server
 
 It is also possible to use redis-simple-cache as a object-oriented cache:
         
-    >> from simplecache import SimpleCache
+    >> from redis_cache import SimpleCache
     >> c = SimpleCache(10)  # cache that has a maximum limit of 10 keys
     >> c.store("foo", "bar")
     >> c.get("foo")

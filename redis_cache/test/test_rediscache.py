@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from simplecache import SimpleCache, cache_it, cache_it_json, connection, CacheMissException, ExpiredKeyException
+from redis_cache import SimpleCache, cache_it, cache_it_json, connection, CacheMissException, ExpiredKeyException
 from unittest import TestCase, main
 
 
