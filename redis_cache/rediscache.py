@@ -23,21 +23,28 @@ class SimpleCache(object):
     def __init__(self, limit=1000, expire=60 * 60 * 24):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
+
+    def make_key(self, key):
+        return "SimpleCache-%s::%s" % (id(self), key)
+
+    def get_set_name(self):
+        return "SimpleCache-%s-keys" % id(self)
         
     def store(self, key, value, expire=None):
         """ Stores a value after checking for space constraints and freeing up space if required """
         key = to_unicode(key)
         value = to_unicode(value)
+        set_name = self.get_set_name()
     
-        while connection.scard('SimpleCache:keys') >= self.limit:
-            del_key = connection.spop('SimpleCache:keys')
-            connection.delete("SimpleCache::%s" % del_key)
+        while connection.scard(set_name) >= self.limit:
+            del_key = connection.spop(set_name)
+            connection.delete(self.make_key(del_key))
 
         pipe = connection.pipeline()
         if expire is None:
             expire = self.expire
-        pipe.setex('SimpleCache::%s' % key, expire, value)
-        pipe.sadd("SimpleCache:keys", key)
+        pipe.setex(self.make_key(key), expire, value)
+        pipe.sadd(set_name, key)
         pipe.execute()
 
     def store_json(self, key, value):
@@ -49,9 +56,9 @@ class SimpleCache(object):
     def get(self, key):
         key = to_unicode(key)
         if key in self:
-            val = connection.get("SimpleCache::%s" % key)
+            val = connection.get(self.make_key(key))
             if val is None:  # expired key
-                connection.srem('SimpleCache:keys', key)
+                connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
             else:
                 return val
@@ -64,21 +71,23 @@ class SimpleCache(object):
         return pickle.loads(base64.b64decode(self.get(key)))
 
     def __contains__(self, key):
-        return connection.sismember("SimpleCache:keys", key)
+        return connection.sismember(self.get_set_name(), key)
 
     def __len__(self):
-        return connection.scard("SimpleCache:keys")
+        return connection.scard(self.get_set_name())
 
     def keys(self):
-        keys = connection.keys("SimpleCache::*")
+        keys = connection.keys(self.make_key("*"))
         return keys
 
     def flush(self):
         keys = self.keys()
         pipe = connection.pipeline()
+        prefix_len = len(self.make_key(""))
+        set_name = self.get_set_name()
         for key in keys:
-            key_suffix = key[len("SimpleCache::"):]
-            pipe.srem('SimpleCache:keys', key_suffix)
+            key_suffix = key[prefix_len:]
+            pipe.srem(set_name, key_suffix)
             pipe.delete(key)
         pipe.execute()
 

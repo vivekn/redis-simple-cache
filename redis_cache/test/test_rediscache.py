@@ -104,6 +104,15 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(connection.get("will_not_be_deleted"), '42')
         connection.delete("will_not_be_deleted", '42')
 
+    def test_flush_multiple(self):
+        c1 = SimpleCache(10)
+        c2 = SimpleCache(10)
+        c1.store("foo", "bar")
+        c2.store("foo", "bar")
+        c1.flush()
+        self.assertEqual(len(c1), 0)
+        self.assertEqual(len(c2), 1)
+
     def tearDown(self):
         self.c.flush()
 
