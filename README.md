@@ -7,10 +7,21 @@ Requirements:
 redis 2.6.2  
 redis-py 2.7.1 (see requirements.txt file)
 
+Installation:
+-------------
+
+    pip install redis-simple-cache
+
+or
+
+    git clone git://github.com/fjsj/redis-simple-cache.git
+    cd redis-simple-cache
+    python setup.py install
+
 Usage:
 ------
 
-    from simplecache import cache_it
+    from redis_cache import cache_it
 
     @cache_it(limit=1000, expire=60 * 60 * 24)
     def fib(n):
@@ -27,18 +38,18 @@ It is always recommended to specify a expire time, since by default redis-server
 
 It is also possible to use redis-simple-cache as a object-oriented cache:
         
-    >> from simplecache import SimpleCache
+    >> from redis_cache import SimpleCache
     >> c = SimpleCache(10)  # cache that has a maximum limit of 10 keys
     >> c.store("foo", "bar")
     >> c.get("foo")
-    "bar" 
+    'bar'
     >> "foo" in c  # efficient membership test, time-complexity O(1)
     True
     >> len(c)  # efficient cardinality calculation, time-complexity O(1)
     1
-    >> c.keys()  # returns all keys, time-complexity O(N) with N being the number of keys in the database
-    ["SimpleCache::foo"]
-    >> c.flush()  # flushes the cache, time-complexity O(N) with N being the number of keys in the database
+    >> c.keys()  # returns all keys, time-complexity O(N) with N being the cache c cardinality
+    set(['foo'])
+    >> c.flush()  # flushes the cache, time-complexity O(N) with N being the cache c cardinality
     >> "foo" in c
     False
     >> len(c)
