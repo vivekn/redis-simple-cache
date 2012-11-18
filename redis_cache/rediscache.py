@@ -129,7 +129,6 @@ def cache_it(limit=1000, expire=60 * 60 * 24):
             else:
                 key = pickle.dumps(args)
             cache_key = '%s:%s' % (function.__name__, key)
-            print 'This is my key:', cache_key
             if cache_key in cache:
                 try:
                     return cache.get_pickle(cache_key)
