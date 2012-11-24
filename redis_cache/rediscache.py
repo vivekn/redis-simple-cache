@@ -8,8 +8,6 @@ import base64
 import hashlib
 import redis
 
-#connection = redis.StrictRedis()
-
 class RedisConnect(object):
     '''
     A simple object to store and pass database connection information.
@@ -17,13 +15,26 @@ class RedisConnect(object):
     where redis connection configuration needs customizing.
     '''
 
-    def __init__(self,host=None,port=None,db=0):
+    def __init__(self, db=None, host=None, port=None):
+        self.db = db if db else 0
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
-        self.db = db
 
     def connect(self):
+        '''
+        We cannot assume that connection will succeed, as such we use a ping()
+        method in the redis client library to validate ability to contact redis.
+        RedisNoConnException is raised if we fail to ping.
+        '''
+        try:
+            redis.StrictRedis(host=self.host,port=self.port).ping()
+        except redis.ConnectionError as e:
+            raise RedisNoConnException, ("Failed to create connection to redis",
+                                         (self.host,
+                                          self.port)
+                )
         return redis.StrictRedis(host=self.host,port=self.port,db=self.db)
+
 
 class CacheMissException(Exception):
     pass
@@ -33,15 +44,35 @@ class ExpiredKeyException(Exception):
     pass
 
 
+class RedisNoConnException(Exception):
+    pass
+
+
 class SimpleCache(object):
 
-    def __init__(self, limit=1000, expire=60 * 60 * 24, hashkeys=False):
+    def __init__(self, limit=1000, expire=60 * 60 * 24,
+                 hashkeys=False, db=None, host=None, port=None):
+
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
-        ##  Create a connection to redis using custom settings.
-        ## Example, using custom port and db:
-        ## self.connection = RedisConnect(host='localhost',port=8778,db=10).connect()
-        self.connection = RedisConnect().connect()
+
+        ## database number, host and port are optional, but passing them to
+        ## RedisConnect object is best accomplished via optional arguments to
+        ## the __init__ function upon instantiation of the class, instead of
+        ## storing them in the class definition. Passing in None, which is a
+        ## default already for database host or port will just assume use of
+        ## Redis defaults.
+        self.db = db
+        self.host = host
+        self.port = port
+
+        ## We cannot assume that connection will always succeed. A try/except
+        ## clause will assure unexpected behavior and an unhandled exception do not result.
+        try:
+            self.connection = RedisConnect(host=self.host,port=self.port,db=0).connect()
+        except RedisNoConnException, e:
+            self.connection = None
+            pass
 
         ## There may be instances where we want to create hashes to reduce
         ## a chance of key collisions. An unlikely event, but possible under
@@ -122,6 +153,12 @@ def cache_it(limit=1000, expire=60 * 60 * 24):
 
         @wraps(function)
         def func(*args):
+
+            ## Handle cases where caching is down or otherwise not available.
+            if cache.connection is None:
+                result = function(*args)
+                return result
+
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
             if cache.hashkeys:
@@ -129,6 +166,7 @@ def cache_it(limit=1000, expire=60 * 60 * 24):
             else:
                 key = pickle.dumps(args)
             cache_key = '%s:%s' % (function.__name__, key)
+
             if cache_key in cache:
                 try:
                     return cache.get_pickle(cache_key)
@@ -148,15 +186,26 @@ def cache_it_json(limit=1000, expire=60 * 60 * 24):
     in the database. Useful for types like list, tuple, dict, etc.
     """
     def decorator(function):
-        cache = SimpleCache()
+        cache = SimpleCache(limit, expire, hashkeys=True)
 
         @wraps(function)
         def func(*args):
-            key = json.dumps(args)
+
+            ## Handle cases where caching is down or otherwise not available.
+            if cache.connection is None:
+                result = function(*args)
+                return result
+
+            ## Key will be either a md5 hash or just pickle object,
+            ## in the form of `function name`:`key`
+            if cache.hashkeys:
+                key = hashlib.md5(json.dumps(args)).hexdigest()
+            else:
+                key = json.dumps(args)
             cache_key = '%s:%s' % (function.__name__, key)
+
             if cache_key in cache:
                 try:
-                    print cache_key
                     return cache.get_json(cache_key)
                 except (ExpiredKeyException, CacheMissException) as e:
                     pass
