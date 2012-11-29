@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from redis_cache import SimpleCache, cache_it, cache_it_json, connection, CacheMissException, ExpiredKeyException
+from redis_cache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException
 from unittest import TestCase, main
 
 
@@ -47,7 +47,7 @@ class SimpleCacheTest(TestCase):
 
     def test_decorator(self):
         mutable = []
-        @cache_it()
+        @cache_it(cache=self.c)
         def append(n):
             mutable.append(n)
             return mutable
@@ -63,7 +63,7 @@ class SimpleCacheTest(TestCase):
         import random
 
         mutable = {}
-        @cache_it_json()
+        @cache_it_json(cache=self.c)
         def set_key(n):
             mutable[str(random.random())] = n
             return mutable
@@ -78,7 +78,7 @@ class SimpleCacheTest(TestCase):
     def test_decorator_complex_type(self):
         import math
 
-        @cache_it()
+        @cache_it(cache=self.c)
         def add(x, y):
             return ComplexNumber(x.real + y.real, x.imag + y.imag)
         result = add(ComplexNumber(3,4), ComplexNumber(4,5))
@@ -94,6 +94,7 @@ class SimpleCacheTest(TestCase):
             self.failUnless(len(self.c.keys()) <= 10)
 
     def test_flush(self):
+        connection = self.c.connection
         connection.set("will_not_be_deleted", '42')
         self.c.store("will_be_deleted", '10')
         len_before = len(self.c)
@@ -102,7 +103,7 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(len_before, 1)
         self.assertEqual(len_after, 0)
         self.assertEqual(connection.get("will_not_be_deleted"), '42')
-        connection.delete("will_not_be_deleted", '42')
+        connection.delete("will_not_be_deleted")
 
     def test_flush_multiple(self):
         c1 = SimpleCache(10)
@@ -112,6 +113,7 @@ class SimpleCacheTest(TestCase):
         c1.flush()
         self.assertEqual(len(c1), 0)
         self.assertEqual(len(c2), 1)
+        c2.flush()
 
     def tearDown(self):
         self.c.flush()

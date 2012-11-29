@@ -15,10 +15,10 @@ class RedisConnect(object):
     where redis connection configuration needs customizing.
     '''
 
-    def __init__(self, db=None, host=None, port=None):
-        self.db = db if db else 0
+    def __init__(self, host=None, port=None, db=None):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
+        self.db = db if db else 0
 
     def connect(self):
         '''
@@ -27,13 +27,13 @@ class RedisConnect(object):
         RedisNoConnException is raised if we fail to ping.
         '''
         try:
-            redis.StrictRedis(host=self.host,port=self.port).ping()
+            redis.StrictRedis(host=self.host, port=self.port).ping()
         except redis.ConnectionError as e:
             raise RedisNoConnException, ("Failed to create connection to redis",
                                          (self.host,
                                           self.port)
                 )
-        return redis.StrictRedis(host=self.host,port=self.port,db=self.db)
+        return redis.StrictRedis(host=self.host, port=self.port, db=self.db)
 
 
 class CacheMissException(Exception):
@@ -62,14 +62,14 @@ class SimpleCache(object):
         ## storing them in the class definition. Passing in None, which is a
         ## default already for database host or port will just assume use of
         ## Redis defaults.
-        self.db = db
         self.host = host
         self.port = port
+        self.db = db
 
         ## We cannot assume that connection will always succeed. A try/except
         ## clause will assure unexpected behavior and an unhandled exception do not result.
         try:
-            self.connection = RedisConnect(host=self.host,port=self.port,db=0).connect()
+            self.connection = RedisConnect(host=self.host, port=self.port, db=0).connect()
         except RedisNoConnException, e:
             self.connection = None
             pass
@@ -137,23 +137,25 @@ class SimpleCache(object):
     def flush(self):
         keys = self.keys()
         pipe = self.connection.pipeline()
-        for key in keys:
-            pipe.delete(key)
+        for del_key in keys:
+            pipe.delete(self.make_key(del_key))
         pipe.delete(self.get_set_name())
         pipe.execute()
 
 
-def cache_it(limit=1000, expire=60 * 60 * 24):
+def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
     """
     Apply this decorator to cache any function returning a value. Arguments and function result
     must be pickleable.
     """
+    cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     def decorator(function):
-        cache = SimpleCache(limit, expire, hashkeys=True)
+        cache = cache_
+        if cache is None:
+            cache = SimpleCache(limit, expire, hashkeys=True)
 
         @wraps(function)
         def func(*args):
-
             ## Handle cases where caching is down or otherwise not available.
             if cache.connection is None:
                 result = function(*args)
@@ -180,17 +182,19 @@ def cache_it(limit=1000, expire=60 * 60 * 24):
     return decorator
 
 
-def cache_it_json(limit=1000, expire=60 * 60 * 24):
+def cache_it_json(limit=1000, expire=60 * 60 * 24, cache=None):
     """
     A decorator similar to cache_it, but it serializes the return value to json, while storing
     in the database. Useful for types like list, tuple, dict, etc.
     """
+    cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     def decorator(function):
-        cache = SimpleCache(limit, expire, hashkeys=True)
+        cache = cache_
+        if cache is None:
+            cache = SimpleCache(limit, expire, hashkeys=True)
 
         @wraps(function)
         def func(*args):
-
             ## Handle cases where caching is down or otherwise not available.
             if cache.connection is None:
                 result = function(*args)
