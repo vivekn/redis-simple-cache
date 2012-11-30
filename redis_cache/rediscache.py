@@ -74,9 +74,8 @@ class SimpleCache(object):
             self.connection = None
             pass
 
-        ## There may be instances where we want to create hashes to reduce
-        ## a chance of key collisions. An unlikely event, but possible under
-        ## particular use cases. Keys will also be of a consistent length.
+        ## There may be instances where we want to create hashes for
+        ## keys to have a consistent length.
         self.hashkeys = hashkeys
 
     def make_key(self, key):
