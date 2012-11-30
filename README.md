@@ -33,7 +33,7 @@ Usage:
             return fib(n-1) + fib(n-2)
 
 `limit` is the maximum number of keys, `expire` is the expire time in seconds.  
-It is always recommended to specify a expire time, since by default redis-server will only remove keys with an expire time set. But if you wish your keys to never expire, set `expire` to `None`.  
+It is always recommended to specify a expire time, since by default redis-server will only remove keys with an expire time set in a event of full memory. But if you wish your keys to never expire, set `expire` to `None`.  
 **Note that function arguments and result must be pickleable, since cache_it uses the pickle module.**
 
 It is also possible to use redis-simple-cache as a object-oriented cache:
@@ -55,8 +55,20 @@ It is also possible to use redis-simple-cache as a object-oriented cache:
     >> len(c)
     0
 
-Check out more examples in the tests.py file.
+Check out more examples in the test_rediscache.py file.
+
+Advanced:
+---------
+Advanced users can customize the decorators even more by passing a SimpleCache object. For example:
+    
+    my_cache = SimpleCache(limit=100, expire=60 * 60, hashkeys=True, host='localhost', port=6379, db=1)
+    @cache_it(cache=my_cache)
+    def fib(n):
+        # ...
+
+`hashkeys` parameter makes the SimpleCache to store keys in md5 hash. It is `True` by default in decorators, but `False` by default in a new SimpleCache object.  
+`host`, `port` and `db` are the same redis config params used in StrictRedis class of redis-py.
 
 AUTHOR: Vivek Narayanan  
-FORKED AND IMPROVED BY: Flávio Juvenal  
+FORKED AND IMPROVED BY: Flávio Juvenal and Sam Zaydel   
 LICENSE: BSD
