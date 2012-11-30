@@ -17,6 +17,7 @@ class SimpleCacheTest(TestCase):
 
     def setUp(self):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
+        self.assertIsNotNone(self.c.connection)
 
     def test_expire(self):
         import time
@@ -98,10 +99,14 @@ class SimpleCacheTest(TestCase):
         connection.set("will_not_be_deleted", '42')
         self.c.store("will_be_deleted", '10')
         len_before = len(self.c)
+        len_keys_before = len(connection.keys(self.c.make_key("*")))
         self.c.flush()
         len_after = len(self.c)
+        len_keys_after = len(connection.keys(self.c.make_key("*")))
         self.assertEqual(len_before, 1)
         self.assertEqual(len_after, 0)
+        self.assertEqual(len_keys_before, 1)
+        self.assertEqual(len_keys_after, 0)
         self.assertEqual(connection.get("will_not_be_deleted"), '42')
         connection.delete("will_not_be_deleted")
 
