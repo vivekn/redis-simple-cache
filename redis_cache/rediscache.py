@@ -51,7 +51,7 @@ class RedisNoConnException(Exception):
 class SimpleCache(object):
 
     def __init__(self, limit=1000, expire=60 * 60 * 24,
-                 hashkeys=False, db=None, host=None, port=None):
+                 hashkeys=False, host=None, port=None, db=None):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
