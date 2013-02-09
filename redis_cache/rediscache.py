@@ -7,6 +7,7 @@ import json
 import base64
 import hashlib
 import redis
+import logging
 
 class RedisConnect(object):
     '''
@@ -173,6 +174,8 @@ def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
                     return cache.get_pickle(cache_key)
                 except (ExpiredKeyException, CacheMissException) as e:
                     pass
+                except:
+                    logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
 
             result = function(*args)
             cache.store_pickle(cache_key, result)
@@ -212,6 +215,8 @@ def cache_it_json(limit=1000, expire=60 * 60 * 24, cache=None):
                     return cache.get_json(cache_key)
                 except (ExpiredKeyException, CacheMissException) as e:
                     pass
+                except:
+                    logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
 
             result = function(*args)
             cache.store_json(cache_key, result)
