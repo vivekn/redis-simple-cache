@@ -8,6 +8,8 @@ import base64
 import hashlib
 import redis
 import logging
+import inspect
+import types
 
 class RedisConnect(object):
     '''
@@ -52,10 +54,12 @@ class RedisNoConnException(Exception):
 class SimpleCache(object):
 
     def __init__(self, limit=1000, expire=60 * 60 * 24,
-                 hashkeys=False, host=None, port=None, db=None):
-
+                 hashkeys=False, host=None, port=None, db=None, namespace=None):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
+
+        self.unique = hash(inspect.currentframe().f_back.f_locals['__file__'])\
+            if not namespace else namespace
 
         ## database number, host and port are optional, but passing them to
         ## RedisConnect object is best accomplished via optional arguments to
@@ -66,7 +70,6 @@ class SimpleCache(object):
         self.host = host
         self.port = port
         self.db = db
-
         ## We cannot assume that connection will always succeed. A try/except
         ## clause will assure unexpected behavior and an unhandled exception do not result.
         try:
@@ -80,10 +83,10 @@ class SimpleCache(object):
         self.hashkeys = hashkeys
 
     def make_key(self, key):
-        return "SimpleCache-%s::%s" % (id(self), key)
+        return "{0}:{1}".format(self.unique, key)
 
     def get_set_name(self):
-        return "SimpleCache-%s-keys" % id(self)
+        return "{0}-keys".format(self.unique)
 
     def store(self, key, value, expire=None):
         """ Stores a value after checking for space constraints and freeing up space if required """
@@ -101,6 +104,23 @@ class SimpleCache(object):
         pipe.setex(self.make_key(key), expire, value)
         pipe.sadd(set_name, key)
         pipe.execute()
+
+    def expire_all_in_set(self):
+        """ Method expires all keys in the namespace of this object. At times there is
+         a need to invalidate cache in bulk, because a single change may result
+        in all data returned by a decorated function to be altered.
+        Method returns a tuple where first value is total number of keys in the set of
+        this object's namespace and second value is a number of keys successfully expired.
+        :return: tuple(int, int)
+        """
+        self.set_name = self.get_set_name()
+        self.all_members = self.keys()
+        self.expired = 0
+        for member in self.all_members:
+            res = self.connection.expire("{0}:{1}".format(self.unique, member), 0)
+            if res:
+                self.expired += 1
+        return self.__len__(), self.expired
 
     def store_json(self, key, value):
         self.store(key, json.dumps(value))
@@ -126,9 +146,35 @@ class SimpleCache(object):
         return pickle.loads(base64.b64decode(self.get(key)))
 
     def __contains__(self, key):
+        """ Method establishes membership or lack thereof of a given key in this object's namespace.
+        The obvious use case is with the `in` operator, i.e.: `key` in object.
+        :param key: String representing a possible key in this object's namespace.
+        :return: Boolean
+        """
         return self.connection.sismember(self.get_set_name(), key)
 
+    def __getitem__(self, item):
+        """Select item from list of keys using array indexing. Single item is returned from
+         list of all keys in the given set based on its position in the list.
+        :param item: integer indicating location in the list.
+        :return: string
+        """
+        if not isinstance(item, types.IntType):
+            raise TypeError
+        self.all_keys = list(self.connection.smembers(self.get_set_name()))
+        return "{0}:{1}".format(self.unique, self.all_keys[item])
+
+    def __iter__(self):
+        """ Method returns an Iterator object producing individual keys from the this object's namespace.
+        :return: iterator
+        """
+        return iter(["{0}:{1}".format(self.unique, x)
+                    for x in self.connection.smembers(self.get_set_name())])
+
     def __len__(self):
+        """ Return number of members in the given key namespace.
+        :return: int
+        """
         return self.connection.scard(self.get_set_name())
 
     def keys(self):
