@@ -51,12 +51,11 @@ class RedisNoConnException(Exception):
 class SimpleCache(object):
 
     def __init__(self, limit=10000, expire=60 * 60 * 24,
-                 hashkeys=False, host=None, port=None, db=None, namespace=None, module="SimpleCache"):
+                 hashkeys=False, host=None, port=None, db=None, namespace="SimpleCache"):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
 
-        # Use the name of the module from which we are being called by default.
-        self.prefix = module if not namespace else namespace
+        self.prefix = namespace
 
         ## database number, host and port are optional, but passing them to
         ## RedisConnect object is best accomplished via optional arguments to
@@ -175,7 +174,7 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, module=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
         def func(*args):
@@ -216,7 +215,7 @@ def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, module=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
         def func(*args):
