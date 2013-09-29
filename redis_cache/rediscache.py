@@ -50,7 +50,7 @@ class RedisNoConnException(Exception):
 
 class SimpleCache(object):
 
-    def __init__(self, limit=1000, expire=60 * 60 * 24,
+    def __init__(self, limit=10000, expire=60 * 60 * 24,
                  hashkeys=False, host=None, port=None, db=None, namespace=None, module="SimpleCache"):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -166,7 +166,7 @@ class SimpleCache(object):
         pipe.execute()
 
 
-def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
+def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     """
     Apply this decorator to cache any function returning a value. Arguments and function result
     must be pickleable.
@@ -207,7 +207,7 @@ def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
     return decorator
 
 
-def cache_it_json(limit=1000, expire=60 * 60 * 24, cache=None):
+def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     """
     A decorator similar to cache_it, but it serializes the return value to json, while storing
     in the database. Useful for types like list, tuple, dict, etc.
