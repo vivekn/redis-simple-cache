@@ -122,6 +122,13 @@ class SimpleCache(object):
                 self.expired += 1
         return self.__len__(), self.expired
 
+    def isexpired(self, key):
+        self.ttl = self.connection.pttl(key)
+        if not self.ttl is None:
+            return self.ttl
+        else:
+            return self.connection.pttl("{0}:{1}".format(self.unique, key))
+
     def store_json(self, key, value):
         self.store(key, json.dumps(value))
 
@@ -168,6 +175,8 @@ class SimpleCache(object):
         """ Method returns an Iterator object producing individual keys from the this object's namespace.
         :return: iterator
         """
+        if not self.connection:
+            return iter([])
         return iter(["{0}:{1}".format(self.unique, x)
                     for x in self.connection.smembers(self.get_set_name())])
 
@@ -215,13 +224,12 @@ def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
                 key = pickle.dumps(args)
             cache_key = '%s:%s' % (function.__name__, key)
 
-            if cache_key in cache:
-                try:
-                    return cache.get_pickle(cache_key)
-                except (ExpiredKeyException, CacheMissException) as e:
-                    pass
-                except:
-                    logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
+            try:
+                return cache.get_pickle(cache_key)
+            except (ExpiredKeyException, CacheMissException) as e:
+                pass
+            except:
+                logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
 
             result = function(*args)
             cache.store_pickle(cache_key, result)
