@@ -14,16 +14,16 @@ Installation:
 
 or
 
-    git clone git://github.com/fjsj/redis-simple-cache.git
+    git clone git://github.com/vivekn/redis-simple-cache.git
     cd redis-simple-cache
     python setup.py install
 
 Usage:
 ------
 
-    from redis_cache import cache_it
+    from redis_cache import cache_it_json
 
-    @cache_it(limit=1000, expire=60 * 60 * 24)
+    @cache_it_json(limit=1000, expire=60 * 60 * 24)
     def fib(n):
         if n == 0:
             return 0
@@ -61,13 +61,14 @@ Advanced:
 ---------
 Advanced users can customize the decorators even more by passing a SimpleCache object. For example:
     
-    my_cache = SimpleCache(limit=100, expire=60 * 60, hashkeys=True, host='localhost', port=6379, db=1)
+    my_cache = SimpleCache(limit=100, expire=60 * 60, hashkeys=True, host='localhost', port=6379, db=1, namespace='Fibonacci')
     @cache_it(cache=my_cache)
     def fib(n):
         # ...
 
 `hashkeys` parameter makes the SimpleCache to store keys in md5 hash. It is `True` by default in decorators, but `False` by default in a new SimpleCache object.  
 `host`, `port` and `db` are the same redis config params used in StrictRedis class of redis-py.
+By default, the `namespace` is the name of the module from which the decorated function is called, but it can be overridden with the `namespace` parameter. 
 
 AUTHOR: Vivek Narayanan  
 FORKED AND IMPROVED BY: Flávio Juvenal and Sam Zaydel   

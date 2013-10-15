@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from redis_cache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException
+from rediscache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException
 from unittest import TestCase, main
 
 
@@ -111,7 +111,7 @@ class SimpleCacheTest(TestCase):
         connection.delete("will_not_be_deleted")
 
     def test_flush_multiple(self):
-        c1 = SimpleCache(10)
+        c1 = SimpleCache(10, namespace=__name__)
         c2 = SimpleCache(10)
         c1.store("foo", "bar")
         c2.store("foo", "bar")

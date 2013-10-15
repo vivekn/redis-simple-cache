@@ -4,12 +4,9 @@ A simple redis-cache interface for storing python objects.
 from functools import wraps
 import pickle
 import json
-import base64
 import hashlib
 import redis
 import logging
-import inspect
-import types
 
 class RedisConnect(object):
     '''
@@ -53,13 +50,12 @@ class RedisNoConnException(Exception):
 
 class SimpleCache(object):
 
-    def __init__(self, limit=1000, expire=60 * 60 * 24,
-                 hashkeys=False, host=None, port=None, db=None, namespace=None):
+    def __init__(self, limit=10000, expire=60 * 60 * 24,
+                 hashkeys=False, host=None, port=None, db=None, namespace="SimpleCache"):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
 
-        self.unique = hash(inspect.currentframe().f_back.f_locals['__file__'])\
-            if not namespace else namespace
+        self.prefix = namespace
 
         ## database number, host and port are optional, but passing them to
         ## RedisConnect object is best accomplished via optional arguments to
@@ -83,10 +79,10 @@ class SimpleCache(object):
         self.hashkeys = hashkeys
 
     def make_key(self, key):
-        return "{0}:{1}".format(self.unique, key)
+        return "SimpleCache-{0}:{1}".format(self.prefix, key)
 
     def get_set_name(self):
-        return "{0}-keys".format(self.unique)
+        return "SimpleCache-{0}-keys".format(self.prefix)
 
     def store(self, key, value, expire=None):
         """ Stores a value after checking for space constraints and freeing up space if required """
@@ -106,21 +102,21 @@ class SimpleCache(object):
         pipe.execute()
 
     def expire_all_in_set(self):
-        """ Method expires all keys in the namespace of this object. At times there is
-         a need to invalidate cache in bulk, because a single change may result
+        """
+        Method expires all keys in the namespace of this object. At times there is
+        a need to invalidate cache in bulk, because a single change may result
         in all data returned by a decorated function to be altered.
         Method returns a tuple where first value is total number of keys in the set of
         this object's namespace and second value is a number of keys successfully expired.
-        :return: tuple(int, int)
         """
-        self.set_name = self.get_set_name()
-        self.all_members = self.keys()
-        self.expired = 0
-        for member in self.all_members:
-            res = self.connection.expire("{0}:{1}".format(self.unique, member), 0)
-            if res:
-                self.expired += 1
-        return self.__len__(), self.expired
+        all_members = self.keys()
+        
+        pipe = self.connection.pipeline()
+        for member in all_members:
+            pipe.expire("{0}:{1}".format(self.prefix, member), 0)
+        expired = len(filter(pipe.execute()))
+
+        return len(self), expired
 
     def isexpired(self, key):
         self.ttl = self.connection.pttl(key)
@@ -135,7 +131,7 @@ class SimpleCache(object):
         self.store(key, json.dumps(value))
 
     def store_pickle(self, key, value):
-        self.store(key, base64.b64encode(pickle.dumps(value)))
+        self.store(key, pickle.dumps(value))
 
     def get(self, key):
         key = to_unicode(key)
@@ -154,26 +150,10 @@ class SimpleCache(object):
         return json.loads(self.get(key))
 
     def get_pickle(self, key):
-        return pickle.loads(base64.b64decode(self.get(key)))
+        return pickle.loads(self.get(key))
 
     def __contains__(self, key):
-        """ Method establishes membership or lack thereof of a given key in this object's namespace.
-        The obvious use case is with the `in` operator, i.e.: `key` in object.
-        :param key: String representing a possible key in this object's namespace.
-        :return: Boolean
-        """
         return self.connection.sismember(self.get_set_name(), key)
-
-    def __getitem__(self, item):
-        """Select item from list of keys using array indexing. Single item is returned from
-         list of all keys in the given set based on its position in the list.
-        :param item: integer indicating location in the list.
-        :return: string
-        """
-        if not isinstance(item, types.IntType):
-            raise TypeError
-        self.all_keys = list(self.connection.smembers(self.get_set_name()))
-        return "{0}:{1}".format(self.unique, self.all_keys[item])
 
     def __iter__(self):
         """ Method returns an Iterator object producing individual keys from the this object's namespace.
@@ -181,13 +161,13 @@ class SimpleCache(object):
         """
         if not self.connection:
             return iter([])
-        return iter(["{0}:{1}".format(self.unique, x)
-                    for x in self.connection.smembers(self.get_set_name())])
+        return iter(
+            ["{0}:{1}".format(self.prefix, x)
+                for x in self.connection.smembers(self.get_set_name())
+            ])
 
     def __len__(self):
-        """ Return number of members in the given key namespace.
-        :return: int
-        """
+        "Return number of members in the given key namespace."
         return self.connection.scard(self.get_set_name())
 
     def keys(self):
@@ -202,7 +182,7 @@ class SimpleCache(object):
         pipe.execute()
 
 
-def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
+def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     """
     Apply this decorator to cache any function returning a value. Arguments and function result
     must be pickleable.
@@ -211,7 +191,7 @@ def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
         def func(*args):
@@ -243,7 +223,7 @@ def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
     return decorator
 
 
-def cache_it_json(limit=1000, expire=60 * 60 * 24, cache=None):
+def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     """
     A decorator similar to cache_it, but it serializes the return value to json, while storing
     in the database. Useful for types like list, tuple, dict, etc.
@@ -252,7 +232,7 @@ def cache_it_json(limit=1000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
         def func(*args):
