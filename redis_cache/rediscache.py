@@ -124,6 +124,8 @@ class SimpleCache(object):
 
     def isexpired(self, key):
         self.ttl = self.connection.pttl(key)
+        if self.ttl == -1:
+            return True
         if not self.ttl is None:
             return self.ttl
         else:
@@ -137,14 +139,16 @@ class SimpleCache(object):
 
     def get(self, key):
         key = to_unicode(key)
-        if key in self:
-            val = self.connection.get(self.make_key(key))
-            if val is None:  # expired key
+        if key:  # No need to validate membership, which is an O(n) operation,
+            value = self.connection.get(self.make_key(key))
+            if value is None:  # expired key
+                if not key in self:  # If key does not exist at all, it is a straight miss.
+                    raise CacheMissException
+
                 self.connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
             else:
-                return val
-        raise CacheMissException
+                return value
 
     def get_json(self, key):
         return json.loads(self.get(key))
@@ -227,6 +231,7 @@ def cache_it(limit=1000, expire=60 * 60 * 24, cache=None):
             try:
                 return cache.get_pickle(cache_key)
             except (ExpiredKeyException, CacheMissException) as e:
+                ## Add some sort of cache miss handing here.
                 pass
             except:
                 logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
