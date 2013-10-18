@@ -15,10 +15,11 @@ class RedisConnect(object):
     where redis connection configuration needs customizing.
     '''
 
-    def __init__(self, host=None, port=None, db=None):
+    def __init__(self, host=None, port=None, db=None, password=None):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
         self.db = db if db else 0
+        self.password = None
 
     def connect(self):
         '''
@@ -27,13 +28,13 @@ class RedisConnect(object):
         RedisNoConnException is raised if we fail to ping.
         '''
         try:
-            redis.StrictRedis(host=self.host, port=self.port).ping()
+            redis.StrictRedis(host=self.host, port=self.port, password=self.password).ping()
         except redis.ConnectionError as e:
             raise RedisNoConnException, ("Failed to create connection to redis",
                                          (self.host,
                                           self.port)
                 )
-        return redis.StrictRedis(host=self.host, port=self.port, db=self.db)
+        return redis.StrictRedis(host=self.host, port=self.port, db=self.db, password=self.password)
 
 
 class CacheMissException(Exception):
@@ -51,7 +52,7 @@ class RedisNoConnException(Exception):
 class SimpleCache(object):
 
     def __init__(self, limit=10000, expire=60 * 60 * 24,
-                 hashkeys=False, host=None, port=None, db=None, namespace="SimpleCache"):
+                 hashkeys=False, host=None, port=None, db=None, password=None, namespace="SimpleCache"):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
 
@@ -69,7 +70,7 @@ class SimpleCache(object):
         ## We cannot assume that connection will always succeed. A try/except
         ## clause will assure unexpected behavior and an unhandled exception do not result.
         try:
-            self.connection = RedisConnect(host=self.host, port=self.port, db=0).connect()
+            self.connection = RedisConnect(host=self.host, port=self.port, db=0, password=password).connect()
         except RedisNoConnException, e:
             self.connection = None
             pass
