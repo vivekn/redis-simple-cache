@@ -19,7 +19,7 @@ class RedisConnect(object):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
         self.db = db if db else 0
-        self.password = None
+        self.password = password
 
     def connect(self):
         '''
