@@ -14,10 +14,11 @@ class RedisConnect(object):
     This makes the Simple Cache class a little more flexible, for cases
     where redis connection configuration needs customizing.
     """
-    def __init__(self, host=None, port=None, db=None):
+    def __init__(self, host=None, port=None, db=None, password=None):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
         self.db = db if db else 0
+        self.password = password
 
     def connect(self):
         """
@@ -26,15 +27,17 @@ class RedisConnect(object):
         RedisNoConnException is raised if we fail to ping.
         :return: redis.StrictRedis Connection Object
         """
-
         try:
-            redis.StrictRedis(host=self.host, port=self.port).ping()
+            redis.StrictRedis(host=self.host, port=self.port, password=self.password).ping()
         except redis.ConnectionError as e:
-            raise RedisNoConnException, ("Failed to create connection to redis",
-                                         (self.host,
-                                          self.port)
-                )
-        return redis.StrictRedis(host=self.host, port=self.port, db=self.db)
+            raise RedisNoConnException("Failed to create connection to redis",
+                                       (self.host,
+                                        self.port)
+            )
+        return redis.StrictRedis(host=self.host,
+                                 port=self.port,
+                                 db=self.db,
+                                 password=self.password)
 
 
 class CacheMissException(Exception):
@@ -50,9 +53,16 @@ class RedisNoConnException(Exception):
 
 
 class SimpleCache(object):
+    def __init__(self,
+                 limit=10000,
+                 expire=60 * 60 * 24,
+                 hashkeys=False,
+                 host=None,
+                 port=None,
+                 db=None,
+                 password=None,
+                 prefix="SimpleCache"):
 
-    def __init__(self, limit=10000, expire=60 * 60 * 24,
-                 hashkeys=False, host=None, port=None, db=None, prefix="SimpleCache"):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
         self.prefix = prefix
@@ -69,7 +79,10 @@ class SimpleCache(object):
         ## We cannot assume that connection will always succeed. A try/except
         ## clause will assure unexpected behavior and an unhandled exception do not result.
         try:
-            self.connection = RedisConnect(host=self.host, port=self.port, db=0).connect()
+            self.connection = RedisConnect(host=self.host,
+                                           port=self.port,
+                                           db=0,
+                                           password=password).connect()
         except RedisNoConnException, e:
             self.connection = None
             pass
@@ -252,7 +265,7 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, prefix=function.__module__)
 
         @wraps(function)
         def func(*args):
@@ -298,7 +311,7 @@ def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, prefix=function.__module__)
 
         @wraps(function)
         def func(*args):
