@@ -9,23 +9,24 @@ import redis
 import logging
 
 class RedisConnect(object):
-    '''
+    """
     A simple object to store and pass database connection information.
     This makes the Simple Cache class a little more flexible, for cases
     where redis connection configuration needs customizing.
-    '''
-
+    """
     def __init__(self, host=None, port=None, db=None):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
         self.db = db if db else 0
 
     def connect(self):
-        '''
+        """
         We cannot assume that connection will succeed, as such we use a ping()
         method in the redis client library to validate ability to contact redis.
         RedisNoConnException is raised if we fail to ping.
-        '''
+        :return: redis.StrictRedis Connection Object
+        """
+
         try:
             redis.StrictRedis(host=self.host, port=self.port).ping()
         except redis.ConnectionError as e:
@@ -51,11 +52,10 @@ class RedisNoConnException(Exception):
 class SimpleCache(object):
 
     def __init__(self, limit=10000, expire=60 * 60 * 24,
-                 hashkeys=False, host=None, port=None, db=None, namespace="SimpleCache"):
+                 hashkeys=False, host=None, port=None, db=None, prefix="SimpleCache"):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
-
-        self.prefix = namespace
+        self.prefix = prefix
 
         ## database number, host and port are optional, but passing them to
         ## RedisConnect object is best accomplished via optional arguments to
@@ -79,13 +79,28 @@ class SimpleCache(object):
         self.hashkeys = hashkeys
 
     def make_key(self, key):
+        """
+        Method generates full key identifier from prefix and partial key id.
+        :param key: string representing key in a given set
+        :return: generated key name that includes a prefix
+        """
         return "SimpleCache-{0}:{1}".format(self.prefix, key)
 
     def get_set_name(self):
+        """
+        Method will return name of set to which keys for given namespace belong.
+        :return: string
+        """
         return "SimpleCache-{0}-keys".format(self.prefix)
 
     def store(self, key, value, expire=None):
-        """ Stores a value after checking for space constraints and freeing up space if required """
+        """
+        Method stores a value after checking for space constraints and
+        freeing up space if required.
+        :param key: key by which to reference datum being stored in Redis
+        :param value: actual value being stored under this key
+        :param expire: time-to-live (ttl) for this datum
+        """
         key = to_unicode(key)
         value = to_unicode(value)
         set_name = self.get_set_name()
@@ -108,6 +123,7 @@ class SimpleCache(object):
         in all data returned by a decorated function to be altered.
         Method returns a tuple where first value is total number of keys in the set of
         this object's namespace and second value is a number of keys successfully expired.
+        :return: int, int
         """
         all_members = self.keys()
         
@@ -115,17 +131,22 @@ class SimpleCache(object):
         for member in all_members:
             pipe.expire("{0}:{1}".format(self.prefix, member), 0)
         expired = len(filter(pipe.execute()))
-
         return len(self), expired
 
     def isexpired(self, key):
-        self.ttl = self.connection.pttl(key)
-        if self.ttl == -1:
+        """
+        Method determines whether a given key is already expired. If not expired,
+        we expect to get back current ttl for the given key.
+        :param key: key being looked-up in Redis
+        :return: bool (True) if expired, or int representing current time-to-live (ttl) value
+        """
+        ttl = self.connection.pttl("SimpleCache-{0}".format(key))
+        if ttl == -1:
             return True
-        if not self.ttl is None:
-            return self.ttl
+        if not ttl is None:
+            return ttl
         else:
-            return self.connection.pttl("{0}:{1}".format(self.unique, key))
+            return self.connection.pttl("{0}:{1}".format(self.prefix, key))
 
     def store_json(self, key, value):
         self.store(key, json.dumps(value))
@@ -134,8 +155,15 @@ class SimpleCache(object):
         self.store(key, pickle.dumps(value))
 
     def get(self, key):
+        """
+        Method will retrieve a value for given key, assuming the key is valid and not expired.
+        :param key: key being looked-up in Redis
+        :return: string or object stored under given key
+        :raise ExpiredKeyException: key exists, but has expired
+        :raise CacheMissException: key does not exist; real cache miss
+        """
         key = to_unicode(key)
-        if key:  # No need to validate membership, which is an O(n) operation,
+        if key:  # No need to validate membership, which is an O(1) operation, but seems we can do without.
             value = self.connection.get(self.make_key(key))
             if value is None:  # expired key
                 if not key in self:  # If key does not exist at all, it is a straight miss.
@@ -147,12 +175,29 @@ class SimpleCache(object):
                 return value
 
     def get_json(self, key):
+        """
+        Method will return converted string to a python dict, assuming data is valid JSON.
+        :param key: key being looked-up in Redis
+        :return: dict
+        """
         return json.loads(self.get(key))
 
     def get_pickle(self, key):
+        """
+        Method will return a pickled string after unpickling it.
+        It is common to store pickled strings as cache objects.
+        :param key: key being looked-up in Redis
+        :return: string
+        """
         return pickle.loads(self.get(key))
 
     def __contains__(self, key):
+        """
+        Method validates key membership in the set.
+        :param key: key being looked-up in Redis
+        :return: bool
+        """
+        print "set name is: ", self.get_set_name()
         return self.connection.sismember(self.get_set_name(), key)
 
     def __iter__(self):
@@ -167,13 +212,24 @@ class SimpleCache(object):
             ])
 
     def __len__(self):
-        "Return number of members in the given key namespace."
+        """
+        Method returns number of members in the given key namespace.
+        :return: int
+        """
         return self.connection.scard(self.get_set_name())
 
     def keys(self):
+        """
+        Method will return all keys in the set for this cache object.
+        :return: list
+        """
         return self.connection.smembers(self.get_set_name())
 
     def flush(self):
+        """
+        Method will flush keys from this set.
+        :return: None
+        """
         keys = self.keys()
         pipe = self.connection.pipeline()
         for del_key in keys:
@@ -184,8 +240,13 @@ class SimpleCache(object):
 
 def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     """
-    Apply this decorator to cache any function returning a value. Arguments and function result
-    must be pickleable.
+    Apply this decorator to cache any pure function returning a value. Any function
+    with side-effects should be wrapped.
+    Arguments and function result must be pickleable.
+    :param limit: maximum number of keys to maintain in the set
+    :param expire: period after which an entry in cache is considered expired
+    :param cache: SimpleCache object, if created separately
+    :return: decorated function
     """
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     def decorator(function):
@@ -225,8 +286,13 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
 
 def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     """
-    A decorator similar to cache_it, but it serializes the return value to json, while storing
-    in the database. Useful for types like list, tuple, dict, etc.
+    Apply this decorator to cache any pure function returning a value. Any function
+    with side-effects should be wrapped. Arguments and function result
+    must be able to convert to JSON.
+    :param limit: maximum number of keys to maintain in the set
+    :param expire: period after which an entry in cache is considered expired
+    :param cache: SimpleCache object, if created separately
+    :return: decorated function
     """
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     def decorator(function):
