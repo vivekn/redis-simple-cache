@@ -61,11 +61,11 @@ class SimpleCache(object):
                  port=None,
                  db=None,
                  password=None,
-                 prefix="SimpleCache"):
+                 namespace="SimpleCache"):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
-        self.prefix = prefix
+        self.prefix = namespace
 
         ## database number, host and port are optional, but passing them to
         ## RedisConnect object is best accomplished via optional arguments to
@@ -92,18 +92,9 @@ class SimpleCache(object):
         self.hashkeys = hashkeys
 
     def make_key(self, key):
-        """
-        Method generates full key identifier from prefix and partial key id.
-        :param key: string representing key in a given set
-        :return: generated key name that includes a prefix
-        """
         return "SimpleCache-{0}:{1}".format(self.prefix, key)
 
     def get_set_name(self):
-        """
-        Method will return name of set to which keys for given namespace belong.
-        :return: string
-        """
         return "SimpleCache-{0}-keys".format(self.prefix)
 
     def store(self, key, value, expire=None):
@@ -168,13 +159,6 @@ class SimpleCache(object):
         self.store(key, pickle.dumps(value))
 
     def get(self, key):
-        """
-        Method will retrieve a value for given key, assuming the key is valid and not expired.
-        :param key: key being looked-up in Redis
-        :return: string or object stored under given key
-        :raise ExpiredKeyException: key exists, but has expired
-        :raise CacheMissException: key does not exist; real cache miss
-        """
         key = to_unicode(key)
         if key:  # No need to validate membership, which is an O(1) operation, but seems we can do without.
             value = self.connection.get(self.make_key(key))
@@ -188,35 +172,15 @@ class SimpleCache(object):
                 return value
 
     def get_json(self, key):
-        """
-        Method will return converted string to a python dict, assuming data is valid JSON.
-        :param key: key being looked-up in Redis
-        :return: dict
-        """
         return json.loads(self.get(key))
 
     def get_pickle(self, key):
-        """
-        Method will return a pickled string after unpickling it.
-        It is common to store pickled strings as cache objects.
-        :param key: key being looked-up in Redis
-        :return: string
-        """
         return pickle.loads(self.get(key))
 
     def __contains__(self, key):
-        """
-        Method validates key membership in the set.
-        :param key: key being looked-up in Redis
-        :return: bool
-        """
-        print "set name is: ", self.get_set_name()
         return self.connection.sismember(self.get_set_name(), key)
 
     def __iter__(self):
-        """ Method returns an Iterator object producing individual keys from the this object's namespace.
-        :return: iterator
-        """
         if not self.connection:
             return iter([])
         return iter(
@@ -225,24 +189,12 @@ class SimpleCache(object):
             ])
 
     def __len__(self):
-        """
-        Method returns number of members in the given key namespace.
-        :return: int
-        """
         return self.connection.scard(self.get_set_name())
 
     def keys(self):
-        """
-        Method will return all keys in the set for this cache object.
-        :return: list
-        """
         return self.connection.smembers(self.get_set_name())
 
     def flush(self):
-        """
-        Method will flush keys from this set.
-        :return: None
-        """
         keys = self.keys()
         pipe = self.connection.pipeline()
         for del_key in keys:
@@ -265,7 +217,7 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, prefix=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
         def func(*args):
@@ -311,7 +263,7 @@ def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, prefix=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
         def func(*args):
