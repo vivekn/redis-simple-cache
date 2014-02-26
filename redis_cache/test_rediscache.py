@@ -120,6 +120,15 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(len(c2), 1)
         c2.flush()
 
+    def test_expire_all_in_set(self):
+        self.c.store("foo", "bir")
+        self.c.store("fuu", "bor")
+        self.c.store("fii", "bur")
+        self.assertEqual(self.c.expire_all_in_set(), (3,3))
+        self.assertTrue(self.c.isexpired("foo"))
+        self.assertTrue(self.c.isexpired("fuu"))
+        self.assertTrue(self.c.isexpired("fii"))
+
     def tearDown(self):
         self.c.flush()
 
