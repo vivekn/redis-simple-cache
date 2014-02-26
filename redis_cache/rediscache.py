@@ -130,11 +130,11 @@ class SimpleCache(object):
         :return: int, int
         """
         all_members = self.keys()
-        
+
         pipe = self.connection.pipeline()
         for member in all_members:
-            pipe.expire("{0}:{1}".format(self.prefix, member), 0)
-        expired = len(filter(pipe.execute()))
+            pipe.expire(self.make_key(member), 0)
+        expired = len(filter(None, pipe.execute()))
         return len(self), expired
 
     def isexpired(self, key):
