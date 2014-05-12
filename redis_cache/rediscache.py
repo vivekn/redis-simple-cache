@@ -6,7 +6,11 @@ import pickle
 import json
 import hashlib
 import redis
+import copy
 import logging
+
+__all__ = ['CacheMissException', 'ExpiredKeyException', 'RedisNoConnException',
+    'SimpleCache', 'cache_it', 'cache_it_json']
 
 class RedisConnect(object):
     """
@@ -105,8 +109,8 @@ class SimpleCache(object):
         :param value: actual value being stored under this key
         :param expire: time-to-live (ttl) for this datum
         """
-        key = to_unicode(key)
-        value = to_unicode(value)
+        key = _to_unicode(key)
+        value = _to_unicode(value)
         set_name = self.get_set_name()
 
         while self.connection.scard(set_name) >= self.limit:
@@ -159,7 +163,7 @@ class SimpleCache(object):
         self.store(key, pickle.dumps(value))
 
     def get(self, key):
-        key = to_unicode(key)
+        key = _to_unicode(key)
         if key:  # No need to validate membership, which is an O(1) operation, but seems we can do without.
             value = self.connection.get(self.make_key(key))
             if value is None:  # expired key
@@ -203,99 +207,92 @@ class SimpleCache(object):
         pipe.execute()
 
 
-def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
+def cache_it(limit=10000, expire=60 * 60 * 24, use_kwargs=False,
+             use_json=False, cache=None):
     """
-    Apply this decorator to cache any pure function returning a value. Any function
-    with side-effects should be wrapped.
+    Apply this decorator to cache any pure function returning a value.
+    Any function with side-effects should be wrapped.
     Arguments and function result must be pickleable.
     :param limit: maximum number of keys to maintain in the set
     :param expire: period after which an entry in cache is considered expired
     :param cache: SimpleCache object, if created separately
     :return: decorated function
     """
-    cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
+    # Since python 2.x doesn't have the nonlocal keyword, we need to do this
+    cache_ = cache
+
     def decorator(function):
         cache = cache_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True,
+                namespace=function.__module__)
 
         @wraps(function)
-        def func(*args):
+        def func(*args, **kwargs):
             ## Handle cases where caching is down or otherwise not available.
             if cache.connection is None:
-                result = function(*args)
+                result = function(*args, **kwargs)
                 return result
 
-            ## Key will be either a md5 hash or just pickle object,
-            ## in the form of `function name`:`key`
+            serializer = json if use_json else pickle
+            fetcher = cache.get_json if use_json else cache.get_pickle
+            storer = cache.store_json if use_json else cache.store_pickle
+
+            cache_kwargs = None
+            if use_kwargs:
+                cache_kwargs = copy.deepcopy(kwargs)
+
+                if isinstance(use_kwargs, str):
+                    new_kwargs = {}
+                    for kwarg in use_kwargs.split(','):
+                        new_kwargs[kwargs] = cache_kwargs.pop(kwarg, None)
+                    cache_kwargs = new_kwargs
+
+            key_obj = {'call_args': args, 'call_kwargs': cache_kwargs}
+            key = serializer.dumps(key_obj)
+
             if cache.hashkeys:
-                key = hashlib.md5(pickle.dumps(args)).hexdigest()
-            else:
-                key = pickle.dumps(args)
-            cache_key = '%s:%s' % (function.__name__, key)
+                key = hashlib.md5(key).hexdigest()
+
+            cache_key = '{function_name}:{key}'.format(
+                function_name=function.__name__,
+                key=key)
 
             try:
-                return cache.get_pickle(cache_key)
-            except (ExpiredKeyException, CacheMissException) as e:
-                ## Add some sort of cache miss handing here.
-                pass
-            except:
-                logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
+                return fetcher(cache_key)
+            except (ExpiredKeyException, CacheMissException):
+                logging.info("CacheMiss on {cache_key}".format(
+                    cache_key=cache_key))
+            except Exception:
+                logging.exception("Unknown redis-simple-cache error. "
+                "Please check your Redis free space.")
 
-            result = function(*args)
-            cache.store_pickle(cache_key, result)
+            result = function(*args, **kwargs)
+            storer(cache_key, result)
             return result
         return func
     return decorator
 
 
-def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
+def cache_it_json(limit=10000, expire=60 * 60 * 24, use_kwargs=False,
+                  cache=None):
     """
-    Apply this decorator to cache any pure function returning a value. Any function
-    with side-effects should be wrapped. Arguments and function result
-    must be able to convert to JSON.
+    Apply this decorator to cache any pure function returning a value.
+    Any function with side-effects should be wrapped.
+    Arguments and function result  must be able to convert to JSON.
     :param limit: maximum number of keys to maintain in the set
     :param expire: period after which an entry in cache is considered expired
     :param cache: SimpleCache object, if created separately
     :return: decorated function
     """
-    cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
-    def decorator(function):
-        cache = cache_
-        if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
-
-        @wraps(function)
-        def func(*args):
-            ## Handle cases where caching is down or otherwise not available.
-            if cache.connection is None:
-                result = function(*args)
-                return result
-
-            ## Key will be either a md5 hash or just pickle object,
-            ## in the form of `function name`:`key`
-            if cache.hashkeys:
-                key = hashlib.md5(json.dumps(args)).hexdigest()
-            else:
-                key = json.dumps(args)
-            cache_key = '%s:%s' % (function.__name__, key)
-
-            if cache_key in cache:
-                try:
-                    return cache.get_json(cache_key)
-                except (ExpiredKeyException, CacheMissException) as e:
-                    pass
-                except:
-                    logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
-
-            result = function(*args)
-            cache.store_json(cache_key, result)
-            return result
-        return func
-    return decorator
+    return cache_it(limit=limit,
+                    expire=expire,
+                    use_kwargs=use_kwargs,
+                    use_json=True,
+                    cache=cache)
 
 
-def to_unicode(obj, encoding='utf-8'):
+def _to_unicode(obj, encoding='utf-8'):
     if isinstance(obj, basestring):
         if not isinstance(obj, unicode):
             obj = unicode(obj, encoding)
