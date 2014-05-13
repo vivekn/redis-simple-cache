@@ -73,7 +73,7 @@ class SimpleCache(object):
         try:
             self.connection = RedisConnect(host=self.host,
                                            port=self.port,
-                                           db=0,
+                                           db=self.db,
                                            password=password).connect()
         except RedisNoConnException, e:
             self.connection = None
