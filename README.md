@@ -72,4 +72,5 @@ By default, the `namespace` is the name of the module from which the decorated f
 
 AUTHOR: Vivek Narayanan  
 FORKED AND IMPROVED BY: Flávio Juvenal and Sam Zaydel   
+CONTRIBUTORS: DJ Gilcrease, David Ng, Johannes Maximilian Toball, Robert Marshall
 LICENSE: BSD
