@@ -66,18 +66,10 @@ class SimpleCache(object):
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
         self.prefix = namespace
-
-        ## database number, host and port are optional, but passing them to
-        ## RedisConnect object is best accomplished via optional arguments to
-        ## the __init__ function upon instantiation of the class, instead of
-        ## storing them in the class definition. Passing in None, which is a
-        ## default already for database host or port will just assume use of
-        ## Redis defaults.
         self.host = host
         self.port = port
         self.db = db
-        ## We cannot assume that connection will always succeed. A try/except
-        ## clause will assure unexpected behavior and an unhandled exception do not result.
+
         try:
             self.connection = RedisConnect(host=self.host,
                                            port=self.port,
@@ -87,8 +79,7 @@ class SimpleCache(object):
             self.connection = None
             pass
 
-        ## There may be instances where we want to create hashes for
-        ## keys to have a consistent length.
+        # Should we hash keys? There is a very small risk of collision invloved.
         self.hashkeys = hashkeys
 
     def make_key(self, key):
@@ -202,6 +193,13 @@ class SimpleCache(object):
         pipe.delete(self.get_set_name())
         pipe.execute()
 
+    def get_hash(self, args):
+        if self.hashkeys:
+            key = hashlib.md5(args).hexdigest()
+        else:
+            key = pickle.dumps(args)
+        return key
+
 
 def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
     """
@@ -220,18 +218,15 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
             cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
-        def func(*args):
+        def func(*args, **kwargs):
             ## Handle cases where caching is down or otherwise not available.
             if cache.connection is None:
-                result = function(*args)
+                result = function(*args, **kwargs)
                 return result
 
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
-            if cache.hashkeys:
-                key = hashlib.md5(pickle.dumps(args)).hexdigest()
-            else:
-                key = pickle.dumps(args)
+            key = cache.get_hash(pickle.dumps([args, kwargs]))
             cache_key = '%s:%s' % (function.__name__, key)
 
             try:
@@ -242,7 +237,7 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None):
             except:
                 logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
 
-            result = function(*args)
+            result = function(*args, **kwargs)
             cache.store_pickle(cache_key, result)
             return result
         return func
@@ -266,18 +261,15 @@ def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
             cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
 
         @wraps(function)
-        def func(*args):
+        def func(*args, **kwargs):
             ## Handle cases where caching is down or otherwise not available.
             if cache.connection is None:
-                result = function(*args)
+                result = function(*args, **kwargs)
                 return result
 
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
-            if cache.hashkeys:
-                key = hashlib.md5(json.dumps(args)).hexdigest()
-            else:
-                key = json.dumps(args)
+            key = cache.get_hash(json.dumps([args, kwargs]))
             cache_key = '%s:%s' % (function.__name__, key)
 
             if cache_key in cache:
@@ -288,7 +280,7 @@ def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
                 except:
                     logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
 
-            result = function(*args)
+            result = function(*args, **kwargs)
             cache.store_json(cache_key, result)
             return result
         return func

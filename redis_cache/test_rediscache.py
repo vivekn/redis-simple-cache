@@ -31,6 +31,17 @@ class SimpleCacheTest(TestCase):
     def test_miss(self):
         self.assertRaises(CacheMissException, self.c.get, "blablabla")
 
+    def test_kwargs_decorator(self):
+        @cache_it_json(cache=self.c)
+        def add_it(a, b=10, c=5):
+            return a + b + c
+        add_it(3)
+        self.assertEqual(add_it(3), 18)
+        add_it(5, b=7)
+        self.assertEqual(add_it(5, b=7), 17)
+        add_it(6, c=3)
+        self.assertEqual(add_it(6, c=3), 19)
+
     def test_store_retrieve(self):
         self.c.store("foo", "bar")
         foo = self.c.get("foo")
