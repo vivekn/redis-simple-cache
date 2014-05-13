@@ -71,6 +71,9 @@ Advanced users can customize the decorators even more by passing a SimpleCache o
 By default, the `namespace` is the name of the module from which the decorated function is called, but it can be overridden with the `namespace` parameter. 
 
 AUTHOR: Vivek Narayanan  
+
 FORKED AND IMPROVED BY: Flávio Juvenal and Sam Zaydel   
+
 CONTRIBUTORS: DJ Gilcrease, David Ng, Johannes Maximilian Toball, Robert Marshall
+
 LICENSE: BSD
