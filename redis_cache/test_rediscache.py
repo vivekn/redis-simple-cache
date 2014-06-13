@@ -2,7 +2,7 @@
 #~~~~~~~~~~~~~~~~~~~
 from rediscache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException
 from unittest import TestCase, main
-
+import time
 
 class ComplexNumber(object):  # used in pickle test
     def __init__(self, real, imag):
@@ -20,8 +20,6 @@ class SimpleCacheTest(TestCase):
         self.assertIsNotNone(self.c.connection)
 
     def test_expire(self):
-        import time
-
         quick_c = SimpleCache()
         quick_c.store("foo", "bar", expire=1)
         time.sleep(1.1)
@@ -139,6 +137,52 @@ class SimpleCacheTest(TestCase):
         self.assertTrue(self.c.isexpired("foo"))
         self.assertTrue(self.c.isexpired("fuu"))
         self.assertTrue(self.c.isexpired("fii"))
+
+    def test_mget(self):
+        self.c.store("a1", "a")
+        self.c.store("a2", "aa")
+        self.c.store("a3", "aaa")
+        d = self.c.mget(["a1", "a2", "a3"])
+        self.assertEqual(d["a1"], "a")
+        self.assertEqual(d["a2"], "aa")
+        self.assertEqual(d["a3"], "aaa")
+
+    def test_mget_nonexistant_key(self):
+        self.c.store("b1", "b")
+        self.c.store("b3", "bbb")
+        d = self.c.mget(["b1", "b2", "b3"])
+        self.assertEqual(d["b1"], "b")
+        self.assertEqual(d["b2"], None)
+        self.assertEqual(d["b3"], "bbb")
+
+    def test_mget_expiry(self):
+        self.c.store("c1", "c")
+        self.c.store("c2", "cc", expire=1)
+        self.c.store("c3", "ccc")
+        time.sleep(1.1)
+        d = self.c.mget(["c1", "c2", "c3"])
+        self.assertEqual(d["c1"], "c")
+        self.assertEqual(d["c2"], None)
+        self.assertEqual(d["c3"], "ccc")
+
+    def test_mget_json(self):
+        payload_a1 = {"example_a1": "data_a1"}
+        payload_a2 = {"example_a2": "data_a2"}
+        self.c.store_json("json_a1", payload_a1)
+        self.c.store_json("json_a2", payload_a2)
+        d = self.c.mget_json(["json_a1", "json_a2"])
+        self.assertEqual(d["json_a1"], payload_a1)
+        self.assertEqual(d["json_a2"], payload_a2)
+        
+    def test_mget_json_nonexistant_key(self):
+        payload_b1 = {"example_b1": "data_b1"}
+        payload_b3 = {"example_b3": "data_b3"}
+        self.c.store_json("json_b1", payload_b1)
+        self.c.store_json("json_b3", payload_b3)
+        d = self.c.mget_json(["json_b1", "json_b2", "json_b3"])
+        self.assertEqual(d["json_b1"], payload_b1)
+        self.assertEqual(d["json_b2"], None)
+        self.assertEqual(d["json_b3"], payload_b3)
 
     def tearDown(self):
         self.c.flush()
