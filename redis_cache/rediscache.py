@@ -165,16 +165,17 @@ class SimpleCache(object):
     def mget(self, keys):
         ''' Returns a dict of key/values.
             If key does not exist or is expired, the corresponding value will be None. '''
-        cache_keys = [self.make_key(to_unicode(key)) for key in keys]
-        values = self.connection.mget(cache_keys)
-        
-        pipe = self.connection.pipeline()
-        for key, value in zip(cache_keys, values):
-            if value is None:  # expired key
-                pipe.srem(self.get_set_name(), key)
-        pipe.execute()
+        if keys:
+            cache_keys = [self.make_key(to_unicode(key)) for key in keys]
+            values = self.connection.mget(cache_keys)
+            
+            pipe = self.connection.pipeline()
+            for key, value in zip(cache_keys, values):
+                if value is None:  # expired key
+                    pipe.srem(self.get_set_name(), key)
+            pipe.execute()
 
-        return dict(zip(keys, values))
+            return dict(zip(keys, values))
 
     def get_json(self, key):
         return json.loads(self.get(key))
@@ -186,9 +187,10 @@ class SimpleCache(object):
         ''' Returns a dict of key/values with each value parsed from JSON format.
             If key does not exist or is expired, the corresponding value will be None. '''
         d = self.mget(keys)
-        for key in d.keys():
-            d[key] = json.loads(d[key]) if d[key] else None 
-        return d
+        if d:
+            for key in d.keys():
+                d[key] = json.loads(d[key]) if d[key] else None 
+            return d
 
     def __contains__(self, key):
         return self.connection.sismember(self.get_set_name(), key)
