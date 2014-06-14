@@ -12,7 +12,7 @@ Installation:
 
     pip install redis-simple-cache
 
-or
+or to get the latest version
 
     git clone git://github.com/vivekn/redis-simple-cache.git
     cd redis-simple-cache
@@ -72,8 +72,18 @@ By default, the `namespace` is the name of the module from which the decorated f
 
 AUTHOR: Vivek Narayanan  
 
-FORKED AND IMPROVED BY: Flávio Juvenal and Sam Zaydel   
+CONTRIBUTORS: 
 
-CONTRIBUTORS: DJ Gilcrease, David Ng, Johannes Maximilian Toball, Robert Marshall
+Flávio Juvenal
+
+Sam Zaydel  
+
+David Ng
+
+DJ Gilcrease
+
+Johannes Maximilian Toball
+
+Robert Marshall
 
 LICENSE: BSD
