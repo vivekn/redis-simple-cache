@@ -152,7 +152,7 @@ class SimpleCacheTest(TestCase):
         self.c.store("b3", "bbb")
         d = self.c.mget(["b1", "b2", "b3"])
         self.assertEqual(d["b1"], "b")
-        self.assertEqual(d["b2"], None)
+        self.assertTrue("b2" not in d)
         self.assertEqual(d["b3"], "bbb")
 
     def test_mget_expiry(self):
@@ -162,7 +162,7 @@ class SimpleCacheTest(TestCase):
         time.sleep(1.1)
         d = self.c.mget(["c1", "c2", "c3"])
         self.assertEqual(d["c1"], "c")
-        self.assertEqual(d["c2"], None)
+        self.assertTrue("c2" not in d)
         self.assertEqual(d["c3"], "ccc")
 
     def test_mget_json(self):
@@ -181,7 +181,7 @@ class SimpleCacheTest(TestCase):
         self.c.store_json("json_b3", payload_b3)
         d = self.c.mget_json(["json_b1", "json_b2", "json_b3"])
         self.assertEqual(d["json_b1"], payload_b1)
-        self.assertEqual(d["json_b2"], None)
+        self.assertTrue("json_b2" not in d)
         self.assertEqual(d["json_b3"], payload_b3)
 
     def tearDown(self):

@@ -163,19 +163,19 @@ class SimpleCache(object):
                 return value
 
     def mget(self, keys):
-        ''' Returns a dict of key/values.
-            If key does not exist or is expired, the corresponding value will be None. '''
+        ''' Returns a dict of key/values for found keys. '''
         if keys:
             cache_keys = [self.make_key(to_unicode(key)) for key in keys]
             values = self.connection.mget(cache_keys)
             
-            pipe = self.connection.pipeline()
-            for key, value in zip(cache_keys, values):
-                if value is None:  # expired key
-                    pipe.srem(self.get_set_name(), key)
-            pipe.execute()
+            if None in values:
+                pipe = self.connection.pipeline()
+                for cache_key, value in zip(cache_keys, values):
+                    if value is None:  # non-existant or expired key
+                        pipe.srem(self.get_set_name(), cache_key)
+                pipe.execute()
 
-            return dict(zip(keys, values))
+            return {k: v for (k, v) in zip(keys, values) if v is not None}
 
     def get_json(self, key):
         return json.loads(self.get(key))
@@ -184,8 +184,7 @@ class SimpleCache(object):
         return pickle.loads(self.get(key))
 
     def mget_json(self, keys):
-        ''' Returns a dict of key/values with each value parsed from JSON format.
-            If key does not exist or is expired, the corresponding value will be None. '''
+        ''' Returns a dict of key/values for found keys with each value parsed from JSON format. '''
         d = self.mget(keys)
         if d:
             for key in d.keys():
