@@ -162,11 +162,34 @@ class SimpleCache(object):
             else:
                 return value
 
+    def mget(self, keys):
+        ''' Returns a dict of key/values for found keys. '''
+        if keys:
+            cache_keys = [self.make_key(to_unicode(key)) for key in keys]
+            values = self.connection.mget(cache_keys)
+            
+            if None in values:
+                pipe = self.connection.pipeline()
+                for cache_key, value in zip(cache_keys, values):
+                    if value is None:  # non-existant or expired key
+                        pipe.srem(self.get_set_name(), cache_key)
+                pipe.execute()
+
+            return {k: v for (k, v) in zip(keys, values) if v is not None}
+
     def get_json(self, key):
         return json.loads(self.get(key))
 
     def get_pickle(self, key):
         return pickle.loads(self.get(key))
+
+    def mget_json(self, keys):
+        ''' Returns a dict of key/values for found keys with each value parsed from JSON format. '''
+        d = self.mget(keys)
+        if d:
+            for key in d.keys():
+                d[key] = json.loads(d[key]) if d[key] else None 
+            return d
 
     def __contains__(self, key):
         return self.connection.sismember(self.get_set_name(), key)
