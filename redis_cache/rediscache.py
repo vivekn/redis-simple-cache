@@ -83,10 +83,10 @@ class SimpleCache(object):
         self.hashkeys = hashkeys
 
     def make_key(self, key):
-        return "SimpleCache-{0}:{1}".format(self.prefix, key)
+        return u"SimpleCache-{0}:{1}".format(self.prefix, key)
 
     def get_set_name(self):
-        return "SimpleCache-{0}-keys".format(self.prefix)
+        return u"SimpleCache-{0}-keys".format(self.prefix)
 
     def store(self, key, value, expire=None):
         """
@@ -135,13 +135,13 @@ class SimpleCache(object):
         :param key: key being looked-up in Redis
         :return: bool (True) if expired, or int representing current time-to-live (ttl) value
         """
-        ttl = self.connection.pttl("SimpleCache-{0}".format(key))
+        ttl = self.connection.pttl(u"SimpleCache-{0}".format(key))
         if ttl == -1:
             return True
         if not ttl is None:
             return ttl
         else:
-            return self.connection.pttl("{0}:{1}".format(self.prefix, key))
+            return self.connection.pttl(u"{0}:{1}".format(self.prefix, key))
 
     def store_json(self, key, value):
         self.store(key, json.dumps(value))
