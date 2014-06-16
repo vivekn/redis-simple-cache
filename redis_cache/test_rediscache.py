@@ -184,6 +184,16 @@ class SimpleCacheTest(TestCase):
         self.assertTrue("json_b2" not in d)
         self.assertEqual(d["json_b3"], payload_b3)
 
+    def test_invalidate_key(self):
+        self.c.store("d1", "d")
+        self.c.store("d2", "dd")
+        self.c.store("d3", "ddd")
+        self.c.invalidate("d2")
+        d = self.c.mget(["d1", "d2", "d3"])
+        self.assertEqual(d["d1"], "d")
+        self.assertTrue("d2" not in d)
+        self.assertEqual(d["d3"], "ddd")        
+
     def tearDown(self):
         self.c.flush()
 

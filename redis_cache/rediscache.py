@@ -191,6 +191,13 @@ class SimpleCache(object):
                 d[key] = json.loads(d[key]) if d[key] else None 
             return d
 
+    def invalidate(self, key):
+        key = to_unicode(key)
+        pipe = self.connection.pipeline()
+        pipe.srem(self.get_set_name(), key)
+        pipe.delete(self.make_key(key))
+        pipe.execute()
+
     def __contains__(self, key):
         return self.connection.sismember(self.get_set_name(), key)
 
