@@ -1,3 +1,5 @@
+#-*- coding: utf-8 -*-
+#
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
 from rediscache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException
@@ -173,7 +175,7 @@ class SimpleCacheTest(TestCase):
         d = self.c.mget_json(["json_a1", "json_a2"])
         self.assertEqual(d["json_a1"], payload_a1)
         self.assertEqual(d["json_a2"], payload_a2)
-        
+
     def test_mget_json_nonexistant_key(self):
         payload_b1 = {"example_b1": "data_b1"}
         payload_b3 = {"example_b3": "data_b3"}
@@ -183,6 +185,26 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(d["json_b1"], payload_b1)
         self.assertTrue("json_b2" not in d)
         self.assertEqual(d["json_b3"], payload_b3)
+
+    def test_utf8_key_support(self):
+        error = "{0} raised unexpected {1}"
+        c = SimpleCache(namespace=u"ÄÖÜÀÁßäöüàá")
+        ustr = u"ÄÖÜÀÁßäöüàá"
+
+        try:
+            c.make_key(ustr)
+        except UnicodeEncodeError as e:
+            self.fail(error.format("make_key", e.__class__.__name__))
+
+        try:
+            c.get_set_name()
+        except UnicodeEncodeError as e:
+            self.fail(error.format("get_set_name", e.__class__.__name__))
+
+        try:
+            c.isexpired(ustr)
+        except UnicodeEncodeError as e:
+            self.fail(error.format("isexpired", e.__class__.__name__))
 
     def tearDown(self):
         self.c.flush()
