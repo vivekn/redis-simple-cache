@@ -163,7 +163,11 @@ class SimpleCache(object):
                 return value
 
     def mget(self, keys):
-        ''' Returns a dict of key/values for found keys. '''
+        """
+        Method returns a dict of key/values for found keys.
+        :param keys: array of keys to look up in Redis
+        :return: dict of found key/values
+        """
         if keys:
             cache_keys = [self.make_key(to_unicode(key)) for key in keys]
             values = self.connection.mget(cache_keys)
@@ -184,12 +188,28 @@ class SimpleCache(object):
         return pickle.loads(self.get(key))
 
     def mget_json(self, keys):
-        ''' Returns a dict of key/values for found keys with each value parsed from JSON format. '''
+        """
+        Method returns a dict of key/values for found keys with each value
+        parsed from JSON format.
+        :param keys: array of keys to look up in Redis
+        :return: dict of found key/values with values parsed from JSON format
+        """
         d = self.mget(keys)
         if d:
             for key in d.keys():
                 d[key] = json.loads(d[key]) if d[key] else None 
             return d
+
+    def invalidate(self, key):
+        """
+        Method removes (invalidates) an item from the cache.
+        :param key: key to remove from Redis
+        """
+        key = to_unicode(key)
+        pipe = self.connection.pipeline()
+        pipe.srem(self.get_set_name(), key)
+        pipe.delete(self.make_key(key))
+        pipe.execute()
 
     def __contains__(self, key):
         return self.connection.sismember(self.get_set_name(), key)
