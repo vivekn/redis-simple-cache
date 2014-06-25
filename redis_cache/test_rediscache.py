@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from rediscache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException
+from rediscache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
 
@@ -68,6 +68,67 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(len_before, len_after)
         self.assertNotEqual(id(mutable), id(mutable_cached))
         self.assertEqual(mutable, mutable_cached)
+
+    def test_decorator_do_not_cache(self):
+        @cache_it(cache=self.c)
+        def test_no_cache(n):
+            result = n * 10
+            raise DoNotCache(result)
+
+        keys_before = len(self.c.keys())
+        r1 = test_no_cache(20)
+        r2 = test_no_cache(10)
+        r3 = test_no_cache(30)
+        r4 = test_no_cache(20)
+
+        self.assertEqual(r1, (10 * 20))
+        self.assertEqual(r2, (10 * 10))
+        self.assertEqual(r3, (10 * 30))
+        self.assertEqual(r4, (10 * 20))
+
+        keys_after = len(self.c.keys())
+
+        self.assertEqual(keys_before, keys_after)
+
+    def test_decorator_do_not_cache_reraised(self):
+        @cache_it(cache=self.c)
+        def test_no_cache(n):
+            result = n * 10
+            try:
+                raise DoNotCache(result)
+            except DoNotCache as e:
+                raise e
+            except Exception:
+                pass
+
+        keys_before = len(self.c.keys())
+        r1 = test_no_cache(20)
+        r2 = test_no_cache(10)
+        r3 = test_no_cache(30)
+        r4 = test_no_cache(20)
+
+        self.assertEqual(r1, (10 * 20))
+        self.assertEqual(r4, (10 * 20))
+        self.assertEqual(r2, (10 * 10))
+        self.assertEqual(r3, (10 * 30))
+
+        keys_after = len(self.c.keys())
+
+        self.assertEqual(keys_before, keys_after)
+
+    def test_decorator_do_not_cache_wrapping_exception(self):
+        @cache_it(cache=self.c)
+        def test_no_cache(n):
+            try:
+                result = n / 0
+            except ZeroDivisionError as e:
+                raise DoNotCache(e)
+
+        keys_before = len(self.c.keys())
+        r1 = test_no_cache(20)
+        self.assertTrue(isinstance(r1, ZeroDivisionError))
+        keys_after = len(self.c.keys())
+        self.assertEqual(keys_before, keys_after)
 
     def test_decorator_json(self):
         import random
@@ -173,7 +234,7 @@ class SimpleCacheTest(TestCase):
         d = self.c.mget_json(["json_a1", "json_a2"])
         self.assertEqual(d["json_a1"], payload_a1)
         self.assertEqual(d["json_a2"], payload_a2)
-        
+
     def test_mget_json_nonexistant_key(self):
         payload_b1 = {"example_b1": "data_b1"}
         payload_b3 = {"example_b3": "data_b3"}
@@ -192,7 +253,7 @@ class SimpleCacheTest(TestCase):
         d = self.c.mget(["d1", "d2", "d3"])
         self.assertEqual(d["d1"], "d")
         self.assertTrue("d2" not in d)
-        self.assertEqual(d["d3"], "ddd")        
+        self.assertEqual(d["d3"], "ddd")
 
     def tearDown(self):
         self.c.flush()

@@ -52,6 +52,18 @@ class RedisNoConnException(Exception):
     pass
 
 
+class DoNotCache(Exception):
+    _result = None
+
+    def __init__(self, result):
+        super(DoNotCache, self).__init__()
+        self._result = result
+
+    @property
+    def result(self):
+        return self._result
+
+
 class SimpleCache(object):
     def __init__(self,
                  limit=10000,
@@ -171,7 +183,7 @@ class SimpleCache(object):
         if keys:
             cache_keys = [self.make_key(to_unicode(key)) for key in keys]
             values = self.connection.mget(cache_keys)
-            
+
             if None in values:
                 pipe = self.connection.pipeline()
                 for cache_key, value in zip(cache_keys, values):
@@ -197,7 +209,7 @@ class SimpleCache(object):
         d = self.mget(keys)
         if d:
             for key in d.keys():
-                d[key] = json.loads(d[key]) if d[key] else None 
+                d[key] = json.loads(d[key]) if d[key] else None
             return d
 
     def invalidate(self, key):
@@ -284,8 +296,16 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None, use_json=False):
             except:
                 logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
 
-            result = function(*args, **kwargs)
-            storer(cache_key, result)
+            try:
+                result = function(*args, **kwargs)
+            except DoNotCache as e:
+                result = e.result
+            else:
+                try:
+                    storer(cache_key, result)
+                except redis.ConnectionError as e:
+                    logging.exception(e)
+
             return result
         return func
     return decorator
