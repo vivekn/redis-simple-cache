@@ -119,6 +119,19 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(connection.get("will_not_be_deleted"), '42')
         connection.delete("will_not_be_deleted")
 
+    def test_flush_namespace(self):
+        self.c.store("foo:one", "bir")
+        self.c.store("foo:two", "bor")
+        self.c.store("fii", "bur")
+        len_keys_before = len(self.c.keys())
+        self.c.flush_namespace('foo')
+        len_keys_after = len(self.c.keys())
+        self.assertEqual((len_keys_before - len_keys_after), 2)
+        self.assertEqual(self.c.get('fii'), 'bur')
+        self.assertRaises(CacheMissException, self.c.get, "foo:one")
+        self.assertRaises(CacheMissException, self.c.get, "foo:two")
+        self.c.flush()
+
     def test_flush_multiple(self):
         c1 = SimpleCache(10, namespace=__name__)
         c2 = SimpleCache(10)
@@ -133,10 +146,25 @@ class SimpleCacheTest(TestCase):
         self.c.store("foo", "bir")
         self.c.store("fuu", "bor")
         self.c.store("fii", "bur")
-        self.assertEqual(self.c.expire_all_in_set(), (3,3))
+        self.assertEqual(self.c.expire_all_in_set(), (3, 3))
+        self.assertRaises(ExpiredKeyException, self.c.get, "foo")
+        self.assertRaises(ExpiredKeyException, self.c.get, "fuu")
+        self.assertRaises(ExpiredKeyException, self.c.get, "fii")
         self.assertTrue(self.c.isexpired("foo"))
         self.assertTrue(self.c.isexpired("fuu"))
         self.assertTrue(self.c.isexpired("fii"))
+
+    def test_expire_namespace(self):
+        self.c.store("foo:one", "bir")
+        self.c.store("foo:two", "bor")
+        self.c.store("fii", "bur")
+        self.assertEqual(self.c.expire_namespace('foo'), (3, 2))
+        self.assertRaises(ExpiredKeyException, self.c.get, "foo:one")
+        self.assertRaises(ExpiredKeyException, self.c.get, "foo:two")
+        self.assertTrue(self.c.isexpired("foo:one"))
+        self.assertTrue(self.c.isexpired("foo:two"))
+        self.assertTrue(self.c.isexpired("fii") > 0)
+        self.c.flush()
 
     def test_mget(self):
         self.c.store("a1", "a")
@@ -173,7 +201,7 @@ class SimpleCacheTest(TestCase):
         d = self.c.mget_json(["json_a1", "json_a2"])
         self.assertEqual(d["json_a1"], payload_a1)
         self.assertEqual(d["json_a2"], payload_a2)
-        
+
     def test_mget_json_nonexistant_key(self):
         payload_b1 = {"example_b1": "data_b1"}
         payload_b3 = {"example_b3": "data_b3"}
@@ -192,7 +220,7 @@ class SimpleCacheTest(TestCase):
         d = self.c.mget(["d1", "d2", "d3"])
         self.assertEqual(d["d1"], "d")
         self.assertTrue("d2" not in d)
-        self.assertEqual(d["d3"], "ddd")        
+        self.assertEqual(d["d3"], "ddd")
 
     def tearDown(self):
         self.c.flush()
