@@ -97,6 +97,9 @@ class SimpleCache(object):
     def make_key(self, key):
         return "SimpleCache-{0}:{1}".format(self.prefix, key)
 
+    def namespace_key(self, namespace):
+        return self.make_key(namespace + ':*')
+
     def get_set_name(self):
         return "SimpleCache-{0}-keys".format(self.prefix)
 
@@ -123,22 +126,44 @@ class SimpleCache(object):
         pipe.sadd(set_name, key)
         pipe.execute()
 
+
     def expire_all_in_set(self):
         """
-        Method expires all keys in the namespace of this object. At times there is
-        a need to invalidate cache in bulk, because a single change may result
-        in all data returned by a decorated function to be altered.
-        Method returns a tuple where first value is total number of keys in the set of
-        this object's namespace and second value is a number of keys successfully expired.
+        Method expires all keys in the namespace of this object.
+        At times there is  a need to invalidate cache in bulk, because a
+        single change may result in all data returned by a decorated function
+        to be altered.
+        Method returns a tuple where first value is total number of keys in
+        the set of this object's namespace and second value is a number of
+        keys successfully expired.
         :return: int, int
         """
         all_members = self.keys()
 
-        pipe = self.connection.pipeline()
-        for member in all_members:
-            pipe.expire(self.make_key(member), 0)
-        expired = len(filter(None, pipe.execute()))
-        return len(self), expired
+        with self.connection.pipeline() as pipe:
+            pipe.delete(*all_members)
+            pipe.execute()
+
+        return len(self), len(all_members)
+
+    def expire_namespace(self, namespace):
+        """
+        Method expires all keys in the namespace of this object.
+        At times there is  a need to invalidate cache in bulk, because a
+        single change may result in all data returned by a decorated function
+        to be altered.
+        Method returns a tuple where first value is total number of keys in
+        the set of this object's namespace and second value is a number of
+        keys successfully expired.
+        :return: int, int
+        """
+        namespace = self.namespace_key(namespace)
+        all_members = list(self.connection.keys(namespace))
+        with self.connection.pipeline() as pipe:
+            pipe.delete(*all_members)
+            pipe.execute()
+
+        return len(self), len(all_members)
 
     def isexpired(self, key):
         """
@@ -240,13 +265,22 @@ class SimpleCache(object):
     def keys(self):
         return self.connection.smembers(self.get_set_name())
 
+
     def flush(self):
-        keys = self.keys()
-        pipe = self.connection.pipeline()
-        for del_key in keys:
-            pipe.delete(self.make_key(del_key))
-        pipe.delete(self.get_set_name())
-        pipe.execute()
+        keys = list(self.keys())
+        keys.append(self.get_set_name())
+        with self.connection.pipeline() as pipe:
+            pipe.delete(*keys)
+            pipe.execute()
+
+    def flush_namespace(self, namespace):
+        namespace = self.namespace_key(namespace)
+        setname = self.get_set_name()
+        keys = list(self.connection.keys(namespace))
+        with self.connection.pipeline() as pipe:
+            pipe.delete(*keys)
+            pipe.srem(setname, *keys)
+            pipe.execute()
 
     def get_hash(self, args):
         if self.hashkeys:
@@ -256,7 +290,8 @@ class SimpleCache(object):
         return key
 
 
-def cache_it(limit=10000, expire=60 * 60 * 24, cache=None, use_json=False):
+def cache_it(limit=10000, expire=60 * 60 * 24, cache=None,
+             use_json=False, namespace=None):
     """
     Apply this decorator to cache any pure function returning a value. Any function
     with side-effects should be wrapped.
@@ -286,7 +321,12 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None, use_json=False):
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
             key = cache.get_hash(serializer.dumps([args, kwargs]))
-            cache_key = '%s:%s' % (function.__name__, key)
+            cache_key = '{func_name}:{key}'.format(func_name=function.__name__,
+                                                   key=key)
+
+            if namespace:
+                cache_key = '{namespace}:{key}'.format(namespace=namespace,
+                                                       key=cache_key)
 
             try:
                 return fetcher(cache_key)
@@ -311,7 +351,7 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None, use_json=False):
     return decorator
 
 
-def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
+def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None, namespace=None):
     """
     Apply this decorator to cache any pure function returning a value. Any function
     with side-effects should be wrapped. Arguments and function result
@@ -321,7 +361,8 @@ def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None):
     :param cache: SimpleCache object, if created separately
     :return: decorated function
     """
-    return cache_it(limit=limit, expire=expire, use_json=True, cache=cache)
+    return cache_it(limit=limit, expire=expire, use_json=True,
+                    cache=cache, namespace=None)
 
 
 def to_unicode(obj, encoding='utf-8'):
