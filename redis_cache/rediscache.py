@@ -122,7 +122,12 @@ class SimpleCache(object):
         pipe = self.connection.pipeline()
         if expire is None:
             expire = self.expire
-        pipe.setex(self.make_key(key), expire, value)
+
+        if expire is None or expire < 0:
+            pipe.set(self.make_key(key), value)
+        else:
+            pipe.setex(self.make_key(key), expire, value)
+
         pipe.sadd(set_name, key)
         pipe.execute()
 
