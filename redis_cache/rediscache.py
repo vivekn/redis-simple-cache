@@ -8,6 +8,9 @@ import hashlib
 import redis
 import logging
 
+EXP_DEFAULT = 60 * 60 * 24
+
+
 class RedisConnect(object):
     """
     A simple object to store and pass database connection information.
@@ -67,7 +70,7 @@ class DoNotCache(Exception):
 class SimpleCache(object):
     def __init__(self,
                  limit=10000,
-                 expire=60 * 60 * 24,
+                 expire=EXP_DEFAULT,
                  hashkeys=False,
                  host=None,
                  port=None,
@@ -185,11 +188,11 @@ class SimpleCache(object):
         else:
             return self.connection.pttl("{0}:{1}".format(self.prefix, key))
 
-    def store_json(self, key, value):
-        self.store(key, json.dumps(value))
+    def store_json(self, key, value, expire=None):
+        self.store(key, json.dumps(value), expire)
 
-    def store_pickle(self, key, value):
-        self.store(key, pickle.dumps(value))
+    def store_pickle(self, key, value, expire=None):
+        self.store(key, pickle.dumps(value), expire)
 
     def get(self, key):
         key = to_unicode(key)
@@ -295,7 +298,7 @@ class SimpleCache(object):
         return key
 
 
-def cache_it(limit=10000, expire=60 * 60 * 24, cache=None,
+def cache_it(limit=10000, expire=EXP_DEFAULT, cache=None,
              use_json=False, namespace=None):
     """
     Apply this decorator to cache any pure function returning a value. Any function
@@ -307,10 +310,15 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None,
     :return: decorated function
     """
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
+    expire_ = expire  ## Same here.
     def decorator(function):
-        cache = cache_
+        cache, expire = cache_, expire_
         if cache is None:
             cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
+        elif expire == EXP_DEFAULT:
+            # If the expire arg value is the default, set it to None so we store
+            # the expire value of the passed cache object
+            expire = None
 
         @wraps(function)
         def func(*args, **kwargs):
@@ -347,7 +355,7 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None,
                 result = e.result
             else:
                 try:
-                    storer(cache_key, result)
+                    storer(cache_key, result, expire)
                 except redis.ConnectionError as e:
                     logging.exception(e)
 
@@ -356,7 +364,8 @@ def cache_it(limit=10000, expire=60 * 60 * 24, cache=None,
     return decorator
 
 
-def cache_it_json(limit=10000, expire=60 * 60 * 24, cache=None, namespace=None):
+
+def cache_it_json(limit=10000, expire=EXP_DEFAULT, cache=None, namespace=None):
     """
     Apply this decorator to cache any pure function returning a value. Any function
     with side-effects should be wrapped. Arguments and function result
