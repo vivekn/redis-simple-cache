@@ -8,7 +8,7 @@ import hashlib
 import redis
 import logging
 
-EXP_DEFAULT = 60 * 60 * 24
+DEFAULT_EXPIRY = 60 * 60 * 24
 
 
 class RedisConnect(object):
@@ -70,7 +70,7 @@ class DoNotCache(Exception):
 class SimpleCache(object):
     def __init__(self,
                  limit=10000,
-                 expire=EXP_DEFAULT,
+                 expire=DEFAULT_EXPIRY,
                  hashkeys=False,
                  host=None,
                  port=None,
@@ -298,11 +298,9 @@ class SimpleCache(object):
         return key
 
 
-def cache_it(limit=10000, expire=EXP_DEFAULT, cache=None,
+def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
              use_json=False, namespace=None):
     """
-    Apply this decorator to cache any pure function returning a value. Any function
-    with side-effects should be wrapped.
     Arguments and function result must be pickleable.
     :param limit: maximum number of keys to maintain in the set
     :param expire: period after which an entry in cache is considered expired
@@ -315,7 +313,7 @@ def cache_it(limit=10000, expire=EXP_DEFAULT, cache=None,
         cache, expire = cache_, expire_
         if cache is None:
             cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
-        elif expire == EXP_DEFAULT:
+        elif expire == DEFAULT_EXPIRY:
             # If the expire arg value is the default, set it to None so we store
             # the expire value of the passed cache object
             expire = None
@@ -365,11 +363,9 @@ def cache_it(limit=10000, expire=EXP_DEFAULT, cache=None,
 
 
 
-def cache_it_json(limit=10000, expire=EXP_DEFAULT, cache=None, namespace=None):
+def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None):
     """
-    Apply this decorator to cache any pure function returning a value. Any function
-    with side-effects should be wrapped. Arguments and function result
-    must be able to convert to JSON.
+    Arguments and function result must be able to convert to JSON.
     :param limit: maximum number of keys to maintain in the set
     :param expire: period after which an entry in cache is considered expired
     :param cache: SimpleCache object, if created separately
