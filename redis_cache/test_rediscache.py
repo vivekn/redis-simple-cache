@@ -1,6 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
-from rediscache import SimpleCache, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
+from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
 
@@ -18,7 +18,7 @@ class SimpleCacheTest(TestCase):
     def setUp(self):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
         self.assertIsNotNone(self.c.connection)
-
+        self.redis = RedisConnect().connect()
     def test_expire(self):
         quick_c = SimpleCache()
         quick_c.store("foo", "bar", expire=1)
@@ -56,6 +56,7 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(self.c.get_pickle("pickle"), payload)
 
     def test_decorator(self):
+        self.redis.flushall()
         mutable = []
         @cache_it(cache=self.c)
         def append(n):
