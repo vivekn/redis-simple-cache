@@ -182,7 +182,9 @@ class SimpleCache(object):
         :return: bool (True) if expired, or int representing current time-to-live (ttl) value
         """
         ttl = self.connection.pttl("SimpleCache-{0}".format(key))
-        if ttl == -1:
+        if ttl == -2: # not exist
+            ttl = self.connection.pttl(self.make_key(key))
+        elif ttl == -1:
             return True
         if not ttl is None:
             return ttl
@@ -282,13 +284,13 @@ class SimpleCache(object):
             pipe.delete(*keys)
             pipe.execute()
 
-    def flush_namespace(self, namespace):
-        namespace = self.namespace_key(namespace)
+    def flush_namespace(self, space):
+        namespace = self.namespace_key(space)
         setname = self.get_set_name()
         keys = list(self.connection.keys(namespace))
         with self.connection.pipeline() as pipe:
             pipe.delete(*keys)
-            pipe.srem(setname, *keys)
+            pipe.srem(setname, *space)
             pipe.execute()
 
     def get_hash(self, args):
