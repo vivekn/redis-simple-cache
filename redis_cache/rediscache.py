@@ -147,9 +147,10 @@ class SimpleCache(object):
         :return: int, int
         """
         all_members = self.keys()
+        keys  = [self.make_key(k) for k in all_members]
 
         with self.connection.pipeline() as pipe:
-            pipe.delete(*all_members)
+            pipe.delete(*keys)
             pipe.execute()
 
         return len(self), len(all_members)
