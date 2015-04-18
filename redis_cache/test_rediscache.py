@@ -1,5 +1,6 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
+from datetime import timedelta
 from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
@@ -21,7 +22,13 @@ class SimpleCacheTest(TestCase):
         self.redis = RedisConnect().connect()
     def test_expire(self):
         quick_c = SimpleCache()
+
         quick_c.store("foo", "bar", expire=1)
+        time.sleep(1.1)
+        self.assertRaises(ExpiredKeyException, quick_c.get, "foo")
+        quick_c.flush()
+
+        quick_c.store("foo", "bar", expire=timedelta(seconds=1))
         time.sleep(1.1)
         self.assertRaises(ExpiredKeyException, quick_c.get, "foo")
         quick_c.flush()
