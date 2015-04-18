@@ -170,7 +170,7 @@ class SimpleCacheTest(TestCase):
         connection.set("will_not_be_deleted", '42')
         self.c.store("will_be_deleted", '10')
         len_before = len(self.c)
-        len_keys_before = len(connection.keys(self.c.make_key("*")))
+        len_keys_before = len(connection.keys(self.c.prefix_key("*")))
         self.c.flush()
         len_after = len(self.c)
         len_keys_after = connection.get("will_not_be_deleted")
