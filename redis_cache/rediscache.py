@@ -97,11 +97,11 @@ class SimpleCache(object):
         # Should we hash keys? There is a very small risk of collision invloved.
         self.hashkeys = hashkeys
 
-    def make_key(self, key):
+    def prefix_key(self, key):
         return "SimpleCache-{0}:{1}".format(self.prefix, key)
 
     def namespace_key(self, namespace):
-        return self.make_key(namespace + ':*')
+        return self.prefix_key(namespace + ':*')
 
     def get_set_name(self):
         return "SimpleCache-{0}-keys".format(self.prefix)
@@ -120,16 +120,16 @@ class SimpleCache(object):
 
         while self.connection.scard(set_name) >= self.limit:
             del_key = self.connection.spop(set_name)
-            self.connection.delete(self.make_key(del_key))
+            self.connection.delete(self.prefix_key(del_key))
 
         pipe = self.connection.pipeline()
         if expire is None:
             expire = self.expire
 
-        if expire <= 0:
-            pipe.set(self.make_key(key), value)
+        if isinstance(expire, int) and expire <= 0:
+            pipe.set(self.prefix_key(key), value)
         else:
-            pipe.setex(self.make_key(key), expire, value)
+            pipe.setex(self.prefix_key(key), expire, value)
 
         pipe.sadd(set_name, key)
         pipe.execute()
@@ -147,7 +147,7 @@ class SimpleCache(object):
         :return: int, int
         """
         all_members = self.keys()
-        keys  = [self.make_key(k) for k in all_members]
+        keys  = [self.prefix_key(k) for k in all_members]
 
         with self.connection.pipeline() as pipe:
             pipe.delete(*keys)
@@ -183,7 +183,7 @@ class SimpleCache(object):
         """
         ttl = self.connection.pttl("SimpleCache-{0}".format(key))
         if ttl == -2: # not exist
-            ttl = self.connection.pttl(self.make_key(key))
+            ttl = self.connection.pttl(self.prefix_key(key))
         elif ttl == -1:
             return True
         if not ttl is None:
@@ -200,7 +200,7 @@ class SimpleCache(object):
     def get(self, key):
         key = to_unicode(key)
         if key:  # No need to validate membership, which is an O(1) operation, but seems we can do without.
-            value = self.connection.get(self.make_key(key))
+            value = self.connection.get(self.prefix_key(key))
             if value is None:  # expired key
                 if not key in self:  # If key does not exist at all, it is a straight miss.
                     raise CacheMissException
@@ -217,7 +217,7 @@ class SimpleCache(object):
         :return: dict of found key/values
         """
         if keys:
-            cache_keys = [self.make_key(to_unicode(key)) for key in keys]
+            cache_keys = [self.prefix_key(to_unicode(key)) for key in keys]
             values = self.connection.mget(cache_keys)
 
             if None in values:
@@ -256,7 +256,7 @@ class SimpleCache(object):
         key = to_unicode(key)
         pipe = self.connection.pipeline()
         pipe.srem(self.get_set_name(), key)
-        pipe.delete(self.make_key(key))
+        pipe.delete(self.prefix_key(key))
         pipe.execute()
 
     def __contains__(self, key):
@@ -293,7 +293,10 @@ class SimpleCache(object):
             pipe.srem(setname, *space)
             pipe.execute()
 
-    def get_hash(self, args):
+    def get_cache_key(self, serializer, args, kwargs):
+        return self._get_hash(serializer.dumps([args, kwargs]))
+
+    def _get_hash(self, args):
         if self.hashkeys:
             key = hashlib.md5(args).hexdigest()
         else:
@@ -334,7 +337,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
-            key = cache.get_hash(serializer.dumps([args, kwargs]))
+            key = cache.get_cache_key(serializer, args, kwargs)
             cache_key = '{func_name}:{key}'.format(func_name=function.__name__,
                                                    key=key)
 
