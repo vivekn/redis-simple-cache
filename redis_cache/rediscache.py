@@ -126,7 +126,7 @@ class SimpleCache(object):
         if expire is None:
             expire = self.expire
 
-        if isinstance(expire, int) and expire <= 0:
+        if (isinstance(expire, int) and expire <= 0) or (expire == None):
             pipe.set(self.make_key(key), value)
         else:
             pipe.setex(self.make_key(key), expire, value)
