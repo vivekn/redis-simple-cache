@@ -1,1 +1,1 @@
-from rediscache import *
+from .rediscache import *

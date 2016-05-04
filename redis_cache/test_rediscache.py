@@ -1,7 +1,7 @@
 #SimpleCache Tests
 #~~~~~~~~~~~~~~~~~~~
 from datetime import timedelta
-from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
+from .rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
 
@@ -83,7 +83,7 @@ class SimpleCacheTest(TestCase):
             result = n * 10
             raise DoNotCache(result)
 
-        keys_before = len(self.c.keys())
+        keys_before = len(list(self.c.keys()))
         r1 = test_no_cache(20)
         r2 = test_no_cache(10)
         r3 = test_no_cache(30)
@@ -94,7 +94,7 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(r3, (10 * 30))
         self.assertEqual(r4, (10 * 20))
 
-        keys_after = len(self.c.keys())
+        keys_after = len(list(self.c.keys()))
 
         self.assertEqual(keys_before, keys_after)
 
@@ -109,7 +109,7 @@ class SimpleCacheTest(TestCase):
             except Exception:
                 pass
 
-        keys_before = len(self.c.keys())
+        keys_before = len(list(self.c.keys()))
         r1 = test_no_cache(20)
         r2 = test_no_cache(10)
         r3 = test_no_cache(30)
@@ -120,7 +120,7 @@ class SimpleCacheTest(TestCase):
         self.assertEqual(r2, (10 * 10))
         self.assertEqual(r3, (10 * 30))
 
-        keys_after = len(self.c.keys())
+        keys_after = len(list(self.c.keys()))
 
         self.assertEqual(keys_before, keys_after)
 
@@ -132,10 +132,10 @@ class SimpleCacheTest(TestCase):
             except ZeroDivisionError as e:
                 raise DoNotCache(e)
 
-        keys_before = len(self.c.keys())
+        keys_before = len(list(self.c.keys()))
         r1 = test_no_cache(20)
         self.assertTrue(isinstance(r1, ZeroDivisionError))
-        keys_after = len(self.c.keys())
+        keys_after = len(list(self.c.keys()))
         self.assertEqual(keys_before, keys_after)
 
     def test_decorator_json(self):
@@ -169,8 +169,8 @@ class SimpleCacheTest(TestCase):
     def test_cache_limit(self):
         for i in range(100):
             self.c.store("foo%d" % i, "foobar")
-            self.failUnless(len(self.c) <= 10)
-            self.failUnless(len(self.c.keys()) <= 10)
+            self.assertTrue(len(self.c) <= 10)
+            self.assertTrue(len(list(self.c.keys())) <= 10)
 
     def test_flush(self):
         connection = self.c.connection
@@ -193,9 +193,9 @@ class SimpleCacheTest(TestCase):
         self.c.store("foo:one", "bir")
         self.c.store("foo:two", "bor")
         self.c.store("fii", "bur")
-        len_keys_before = len(self.c.keys())
+        len_keys_before = len(list(self.c.keys()))
         self.c.flush_namespace('foo')
-        len_keys_after = len(self.c.keys())
+        len_keys_after = len(list(self.c.keys()))
         self.assertEqual((len_keys_before - len_keys_after), 2)
         self.assertEqual(self.c.get('fii'), 'bur')
         self.assertRaises(CacheMissException, self.c.get, "foo:one")
