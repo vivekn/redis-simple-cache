@@ -172,8 +172,7 @@ class SimpleCache(object):
             with self.connection.pipeline() as pipe:
                 pipe.delete(*all_members)
                 pipe.execute()
-
-        return len(self), len(all_members)
+            return len(self), len(all_members)
 
     def isexpired(self, key):
         """
