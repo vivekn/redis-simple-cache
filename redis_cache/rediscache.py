@@ -168,9 +168,10 @@ class SimpleCache(object):
         """
         namespace = self.namespace_key(namespace)
         all_members = list(self.connection.keys(namespace))
-        with self.connection.pipeline() as pipe:
-            pipe.delete(*all_members)
-            pipe.execute()
+        if all_members:
+            with self.connection.pipeline() as pipe:
+                pipe.delete(*all_members)
+                pipe.execute()
 
         return len(self), len(all_members)
 
