@@ -168,11 +168,11 @@ class SimpleCache(object):
         """
         namespace = self.namespace_key(namespace)
         all_members = list(self.connection.keys(namespace))
-        with self.connection.pipeline() as pipe:
-            pipe.delete(*all_members)
-            pipe.execute()
-
-        return len(self), len(all_members)
+        if all_members:
+            with self.connection.pipeline() as pipe:
+                pipe.delete(*all_members)
+                pipe.execute()
+            return len(self), len(all_members)
 
     def isexpired(self, key):
         """
@@ -375,7 +375,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
     :return: decorated function
     """
     return cache_it(limit=limit, expire=expire, use_json=True,
-                    cache=cache, namespace=None)
+                    cache=cache, namespace=namespace)
 
 
 def to_unicode(obj, encoding='utf-8'):
