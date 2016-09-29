@@ -376,7 +376,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
     :return: decorated function
     """
     return cache_it(limit=limit, expire=expire, use_json=True,
-                    cache=cache, namespace=None)
+                    cache=cache, namespace=namespace)
 
 
 def to_unicode(obj, encoding='utf-8'):
