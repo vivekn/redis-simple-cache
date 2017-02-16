@@ -7,6 +7,9 @@ import json
 import hashlib
 import redis
 import logging
+import sys
+
+PY2 = sys.version_info[0] == 2
 
 DEFAULT_EXPIRY = 60 * 60 * 24
 
@@ -90,7 +93,7 @@ class SimpleCache(object):
                                            port=self.port,
                                            db=self.db,
                                            password=password).connect()
-        except RedisNoConnException, e:
+        except RedisNoConnException as e:
             self.connection = None
             pass
 
@@ -315,7 +318,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     def decorator(function):
         cache, expire = cache_, expire_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=PY2, namespace=function.__module__)
         elif expire == DEFAULT_EXPIRY:
             # If the expire arg value is the default, set it to None so we store
             # the expire value of the passed cache object
@@ -379,7 +382,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
 
 
 def to_unicode(obj, encoding='utf-8'):
-    if isinstance(obj, basestring):
+    if PY2 and isinstance(obj, basestring):
         if not isinstance(obj, unicode):
             obj = unicode(obj, encoding)
     return obj
