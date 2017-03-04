@@ -287,7 +287,6 @@ class SimpleCache(object):
         return self.connection.scard(self.get_set_name())
 
     def keys(self):
-        # return self.connection.keys()
         return self.connection.smembers(self.get_set_name())
 
     def flush(self):
@@ -388,10 +387,11 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
     :param limit: maximum number of keys to maintain in the set
     :param expire: period after which an entry in cache is considered expired
     :param cache: SimpleCache object, if created separately
+    :param namespace: redis namespace to store the json
     :return: decorated function
     """
     return cache_it(limit=limit, expire=expire, use_json=True,
-                    cache=cache, namespace=None)
+                    cache=cache, namespace=namespace)
 
 
 def to_unicode(obj, encoding='utf-8'):
