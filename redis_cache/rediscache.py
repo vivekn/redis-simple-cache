@@ -8,6 +8,8 @@ import hashlib
 import redis
 import logging
 
+from redis._compat import basestring, unicode
+
 DEFAULT_EXPIRY = 60 * 60 * 24
 
 
@@ -90,7 +92,7 @@ class SimpleCache(object):
                                            port=self.port,
                                            db=self.db,
                                            password=password).connect()
-        except RedisNoConnException, e:
+        except RedisNoConnException as e:
             self.connection = None
             pass
 
