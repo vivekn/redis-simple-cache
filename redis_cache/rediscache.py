@@ -313,13 +313,16 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     expire_ = expire  ## Same here.
 
-    if namespace and isinstance(namespace, str):
-        namespace = str(function.__module__) + ':' + namespace
-    else:
-        namespace = str(function.__module__)
+    
 
     def decorator(function):
         cache, expire = cache_, expire_
+
+        if namespace and isinstance(namespace, str):
+            namespace = str(function.__module__) + ':' + namespace
+        else:
+            namespace = str(function.__module__)
+
         if cache is None:
             cache = SimpleCache(limit, expire, hashkeys=True, namespace=namespace)
         elif expire == DEFAULT_EXPIRY:
