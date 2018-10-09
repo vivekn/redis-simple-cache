@@ -7,7 +7,7 @@ def openf(fname):
 
 setup(
     name="redis-simple-cache",
-    version="0.1.0",
+    version="0.1.1",
     author="Vivek Narayanan, Flávio Juvenal, Sam Zaydel, Yash Sinha",
     author_email="flaviojuvenal@gmail.com, yashpratyushsinha@gmail.com",
     description="redis-simple-cache is a pythonic interface for creating a cache over redis. "
