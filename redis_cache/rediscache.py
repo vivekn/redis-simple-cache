@@ -312,11 +312,12 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     """
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     expire_ = expire  ## Same here.
+    namespace_ = namespace
 
     
 
     def decorator(function):
-        cache, expire = cache_, expire_
+        cache, expire, namespace = cache_, expire_, namespace_
 
         if namespace and isinstance(namespace, str):
             namespace = str(function.__module__) + ':' + namespace
