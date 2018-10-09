@@ -2,6 +2,10 @@
 redis-simple-cache is a pythonic interface for creating a cache over redis.  
 It provides simple decorators that can be added to any function to cache its return values.
 
+Changes in this fork:
+-------------
+Adds python3 support
+
 Requirements:
 -------------
 redis 2.6.2  
