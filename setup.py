@@ -14,7 +14,7 @@ setup(
                 "It provides simple decorators that can be added to any function to cache its return values. ",
     license="3-clause BSD",
     keywords="decorator decorators redis cache",
-    url="https://github.com/vivekn/redis-simple-cache",
+    url="https://github.com/YashSinha1996/redis-simple-cache",
     packages=['redis_cache'],
     long_description=openf("README.md").read(),
     install_requires=[line.strip() for line in openf("requirements.txt") if line.strip()],
