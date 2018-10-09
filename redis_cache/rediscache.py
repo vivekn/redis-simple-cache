@@ -312,10 +312,16 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     """
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     expire_ = expire  ## Same here.
+
+    if namespace and isinstance(namespace, str):
+        namespace = str(function.__module__) + ':' + namespace
+    else:
+        namespace = str(function.__module__)
+
     def decorator(function):
         cache, expire = cache_, expire_
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=function.__module__)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=namespace)
         elif expire == DEFAULT_EXPIRY:
             # If the expire arg value is the default, set it to None so we store
             # the expire value of the passed cache object
@@ -375,7 +381,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
     :return: decorated function
     """
     return cache_it(limit=limit, expire=expire, use_json=True,
-                    cache=cache, namespace=None)
+                    cache=cache, namespace=namespace)
 
 
 def to_unicode(obj, encoding='utf-8'):
