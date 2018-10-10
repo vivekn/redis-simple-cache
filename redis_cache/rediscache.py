@@ -76,7 +76,8 @@ class SimpleCache(object):
                  port=None,
                  db=None,
                  password=None,
-                 namespace="SimpleCache"):
+                 namespace="SimpleCache",
+                 quiet_nohash=False):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -84,6 +85,7 @@ class SimpleCache(object):
         self.host = host
         self.port = port
         self.db = db
+        self.quiet = quiet_nohash
 
         try:
             self.connection = RedisConnect(host=self.host,
@@ -293,16 +295,25 @@ class SimpleCache(object):
             pipe.srem(setname, *space)
             pipe.execute()
 
-    def get_hash(self, args):
-        if self.hashkeys:
-            key = hashlib.md5(to_unicode(args)).hexdigest()
-        else:
-            key = pickle.dumps(args)
-        return key
+    def get_hash(self, args, serializer):
+        try:
+            args = serializer.dumps(args)
+
+            if self.hashkeys:
+                args = hashlib.md5(to_unicode(args)).hexdigest()
+
+            return args
+
+        except TypeError as e:
+
+            if self.quiet:
+                return ""
+            else:
+                raise e
 
 
 def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
-             use_json=False, namespace=None):
+             use_json=False, namespace=None, quiet=False):
     """
     Arguments and function result must be pickleable.
     :param limit: maximum number of keys to maintain in the set
@@ -313,19 +324,19 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
     expire_ = expire  ## Same here.
     namespace_ = namespace
+    quiet_ = quiet
 
     
-
     def decorator(function):
-        cache, expire, namespace = cache_, expire_, namespace_
-
+        cache, expire, namespace, quiet = cache_, expire_, namespace_, quiet_
         if namespace and isinstance(namespace, str):
             namespace = str(function.__module__) + ':' + namespace
         else:
             namespace = str(function.__module__)
 
         if cache is None:
-            cache = SimpleCache(limit, expire, hashkeys=True, namespace=namespace)
+            cache = SimpleCache(limit, expire, hashkeys=True, namespace=namespace, 
+                quiet_nohash=quiet)
         elif expire == DEFAULT_EXPIRY:
             # If the expire arg value is the default, set it to None so we store
             # the expire value of the passed cache object
@@ -344,7 +355,17 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
-            key = cache.get_hash(serializer.dumps([args, kwargs]))
+
+            key = []
+
+            for arg in args:
+                key.append(cache.get_hash(arg, serializer=serializer))
+
+            for arg in kwargs.items():
+                key.append(cache.get_hash(arg, serializer=serializer))
+
+            key = '--'.join(key)
+
             cache_key = '{func_name}:{key}'.format(func_name=function.__name__,
                                                    key=key)
 
@@ -376,7 +397,8 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
 
 
-def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None):
+def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None, 
+                 quiet=False):
     """
     Arguments and function result must be able to convert to JSON.
     :param limit: maximum number of keys to maintain in the set
@@ -385,7 +407,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
     :return: decorated function
     """
     return cache_it(limit=limit, expire=expire, use_json=True,
-                    cache=cache, namespace=namespace)
+                    cache=cache, namespace=namespace, quiet=quiet)
 
 
 def to_unicode(obj, encoding='utf-8'):
