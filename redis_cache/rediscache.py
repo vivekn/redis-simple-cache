@@ -393,7 +393,13 @@ def to_unicode(obj, encoding='utf-8'):
         obj = obj.encode(encoding)
     return obj
 
+
 def to_str(obj, encoding='utf-8'):
-    if isinstance(obj, bytes):
-        obj = obj.decode(encoding)
+    
+    try:
+        if isinstance(obj, bytes):
+            obj = obj.decode(encoding)
+    except UnicodeDecodeError as e:
+        pass
+
     return obj
