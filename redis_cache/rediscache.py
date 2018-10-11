@@ -313,7 +313,7 @@ class SimpleCache(object):
 
 
 def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
-             use_json=False, namespace=None, quiet=False):
+             use_json=False, namespace=None, quiet=False, host=None, port=None):
     """
     Arguments and function result must be pickleable.
     :param limit: maximum number of keys to maintain in the set
@@ -325,10 +325,13 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     expire_ = expire  ## Same here.
     namespace_ = namespace
     quiet_ = quiet
+    host_, port_ = host, port
 
-    
     def decorator(function):
         cache, expire, namespace, quiet = cache_, expire_, namespace_, quiet_
+
+        host, port = host_, port_
+
         if namespace and isinstance(namespace, str):
             namespace = str(function.__module__) + ':' + namespace
         else:
@@ -336,7 +339,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
         if cache is None:
             cache = SimpleCache(limit, expire, hashkeys=True, namespace=namespace, 
-                quiet_nohash=quiet)
+                quiet_nohash=quiet, host=host, port=port)
         elif expire == DEFAULT_EXPIRY:
             # If the expire arg value is the default, set it to None so we store
             # the expire value of the passed cache object
@@ -398,7 +401,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
 
 def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None, 
-                 quiet=False):
+                 quiet=False, host=None, port=None):
     """
     Arguments and function result must be able to convert to JSON.
     :param limit: maximum number of keys to maintain in the set
@@ -407,7 +410,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
     :return: decorated function
     """
     return cache_it(limit=limit, expire=expire, use_json=True,
-                    cache=cache, namespace=namespace, quiet=quiet)
+                    cache=cache, namespace=namespace, quiet=quiet, host=host, port=port)
 
 
 def to_unicode(obj, encoding='utf-8'):
