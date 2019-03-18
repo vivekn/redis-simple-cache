@@ -76,7 +76,8 @@ class SimpleCache(object):
                  port=None,
                  db=None,
                  password=None,
-                 namespace="SimpleCache"):
+                 namespace="SimpleCache",
+                 use_json=False):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -96,6 +97,9 @@ class SimpleCache(object):
 
         # Should we hash keys? There is a very small risk of collision invloved.
         self.hashkeys = hashkeys
+
+        # Define serialization method
+        self.use_json = use_json
 
     def make_key(self, key):
         return "SimpleCache-{0}:{1}".format(self.prefix, key)
@@ -288,10 +292,23 @@ class SimpleCache(object):
         namespace = self.namespace_key(space)
         setname = self.get_set_name()
         keys = list(self.connection.keys(namespace))
+
+        # strip -keys from setname to get prefix
+        # then strip the prefix from each key to remove from members list
+        members = [key[len(setname)-4:] for key in keys]
         with self.connection.pipeline() as pipe:
             pipe.delete(*keys)
-            pipe.srem(setname, *space)
+            pipe.srem(setname, *members)
             pipe.execute()
+
+    def serialize(self, args):
+        return self.serialize_json(args) if self.use_json else self.serialize_pickle(args)
+
+    def serialize_pickle(self, args):
+        return pickle.dumps(args)
+
+    def serialize_json(self, args):
+        return json.dumps(args)
 
     def get_hash(self, args):
         if self.hashkeys:
@@ -328,13 +345,14 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
                 result = function(*args, **kwargs)
                 return result
 
-            serializer = json if use_json else pickle
+            serialize = cache.serialize_json if use_json else cache.serialize_pickle
             fetcher = cache.get_json if use_json else cache.get_pickle
             storer = cache.store_json if use_json else cache.store_pickle
 
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
-            key = cache.get_hash(serializer.dumps([args, kwargs]))
+            sargs = serialize([args, kwargs])
+            key = cache.get_hash(sargs)
             cache_key = '{func_name}:{key}'.format(func_name=function.__name__,
                                                    key=key)
 

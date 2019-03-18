@@ -189,7 +189,7 @@ class SimpleCacheTest(TestCase):
         connection.delete("will_not_be_deleted")
 
     def test_flush_namespace(self):
-    	self.redis.flushall()
+        self.redis.flushall()
         self.c.store("foo:one", "bir")
         self.c.store("foo:two", "bor")
         self.c.store("fii", "bur")
