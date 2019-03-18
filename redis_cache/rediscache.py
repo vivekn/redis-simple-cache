@@ -288,9 +288,13 @@ class SimpleCache(object):
         namespace = self.namespace_key(space)
         setname = self.get_set_name()
         keys = list(self.connection.keys(namespace))
+
+        # strip -keys from setname to get prefix
+        # then strip the prefix from each key to remove from members list
+        members = [key[len(setname)-4:] for key in keys]
         with self.connection.pipeline() as pipe:
             pipe.delete(*keys)
-            pipe.srem(setname, *space)
+            pipe.srem(setname, *members)
             pipe.execute()
 
     def get_hash(self, args):
