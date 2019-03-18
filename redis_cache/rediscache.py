@@ -351,7 +351,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
             ## Key will be either a md5 hash or just pickle object,
             ## in the form of `function name`:`key`
-            sargs = cache.serialize_json([args, kwargs]) if use_json else cache.serialize_pickle([args, kwargs])
+            sargs = serialize([args, kwargs])
             key = cache.get_hash(sargs)
             cache_key = '{func_name}:{key}'.format(func_name=function.__name__,
                                                    key=key)
