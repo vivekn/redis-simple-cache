@@ -17,11 +17,12 @@ class RedisConnect(object):
     This makes the Simple Cache class a little more flexible, for cases
     where redis connection configuration needs customizing.
     """
-    def __init__(self, host=None, port=None, db=None, password=None):
+    def __init__(self, host=None, port=None, db=None, password=None, ssl=False):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
         self.db = db if db else 0
         self.password = password
+        self.ssl = ssl
 
     def connect(self):
         """
@@ -31,7 +32,7 @@ class RedisConnect(object):
         :return: redis.StrictRedis Connection Object
         """
         try:
-            redis.StrictRedis(host=self.host, port=self.port, password=self.password).ping()
+            redis.StrictRedis(host=self.host, port=self.port, password=self.password, ssl=self.ssl).ping()
         except redis.ConnectionError as e:
             raise RedisNoConnException("Failed to create connection to redis",
                                        (self.host,
@@ -76,6 +77,8 @@ class SimpleCache(object):
                  port=None,
                  db=None,
                  password=None,
+                 ssl=False,
+                 client=None,
                  namespace="SimpleCache"):
 
         self.limit = limit  # No of json encoded strings to cache
@@ -86,10 +89,14 @@ class SimpleCache(object):
         self.db = db
 
         try:
-            self.connection = RedisConnect(host=self.host,
-                                           port=self.port,
-                                           db=self.db,
-                                           password=password).connect()
+            if client:
+                self.connection = client
+            else:
+                self.connection = RedisConnect(host=self.host,
+                                               port=self.port,
+                                               db=self.db,
+                                               password=password,
+                                               ssl=ssl).connect()
         except RedisNoConnException, e:
             self.connection = None
             pass
