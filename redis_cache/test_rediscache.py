@@ -5,6 +5,7 @@ from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, Cache
 from unittest import TestCase, main
 import time
 
+
 class ComplexNumber(object):  # used in pickle test
     def __init__(self, real, imag):
         self.real = real
@@ -189,7 +190,7 @@ class SimpleCacheTest(TestCase):
         connection.delete("will_not_be_deleted")
 
     def test_flush_namespace(self):
-    	self.redis.flushall()
+        self.redis.flushall()
         self.c.store("foo:one", "bir")
         self.c.store("foo:two", "bor")
         self.c.store("fii", "bur")
@@ -294,5 +295,6 @@ class SimpleCacheTest(TestCase):
 
     def tearDown(self):
         self.c.flush()
+
 
 main()
