@@ -1,5 +1,5 @@
-#SimpleCache Tests
-#~~~~~~~~~~~~~~~~~~~
+# SimpleCache Tests
+# ~~~~~~~~~~~~~~~~~~~
 from datetime import timedelta
 from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
