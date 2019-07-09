@@ -88,4 +88,7 @@ Robert Marshall
 
 Ben Hayden
 
+
+Python 3 support added by Omer Hanetz
+
 LICENSE: BSD
