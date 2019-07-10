@@ -2,19 +2,21 @@
 redis-simple-cache is a pythonic interface for creating a cache over redis.  
 It provides simple decorators that can be added to any function to cache its return values.
 
+Forked package with python 3 support.
+Original package is located here: https://github.com/vivekn/redis-simple-cache
+
 Requirements:
 -------------
-redis 2.6.2  
-redis-py 2.7.1 (see requirements.txt file)
+redis 3.2.1
 
 Installation:
 -------------
 
-    pip install redis-simple-cache
+    pip install redis-simple-cache-3k
 
 or to get the latest version
 
-    git clone git://github.com/vivekn/redis-simple-cache.git
+    git clone git://github.com/ohanetz/redis-simple-cache.git
     cd redis-simple-cache
     python setup.py install
 
@@ -87,5 +89,8 @@ Johannes Maximilian Toball
 Robert Marshall
 
 Ben Hayden
+
+
+Python 3 support added by Omer Hanetz
 
 LICENSE: BSD

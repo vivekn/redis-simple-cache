@@ -6,6 +6,7 @@ import pickle
 import json
 import hashlib
 import redis
+from redis._compat import unicode, basestring
 import logging
 
 DEFAULT_EXPIRY = 60 * 60 * 24
@@ -17,11 +18,13 @@ class RedisConnect(object):
     This makes the Simple Cache class a little more flexible, for cases
     where redis connection configuration needs customizing.
     """
-    def __init__(self, host=None, port=None, db=None, password=None):
+    def __init__(self, host=None, port=None, db=None, password=None, decode_responses=True, encoding='iso-8859-1'):
         self.host = host if host else 'localhost'
         self.port = port if port else 6379
         self.db = db if db else 0
         self.password = password
+        self.decode_responses = decode_responses
+        self.encoding = encoding
 
     def connect(self):
         """
@@ -40,7 +43,9 @@ class RedisConnect(object):
         return redis.StrictRedis(host=self.host,
                                  port=self.port,
                                  db=self.db,
-                                 password=self.password)
+                                 password=self.password,
+                                 decode_responses=self.decode_responses,
+                                 encoding=self.encoding)
 
 
 class CacheMissException(Exception):
@@ -76,7 +81,9 @@ class SimpleCache(object):
                  port=None,
                  db=None,
                  password=None,
-                 namespace="SimpleCache"):
+                 namespace="SimpleCache",
+                 decode_responses=True,
+                 encoding='iso-8859-1'):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -89,8 +96,10 @@ class SimpleCache(object):
             self.connection = RedisConnect(host=self.host,
                                            port=self.port,
                                            db=self.db,
-                                           password=password).connect()
-        except RedisNoConnException, e:
+                                           password=password,
+                                           decode_responses=decode_responses,
+                                           encoding=encoding).connect()
+        except RedisNoConnException:
             self.connection = None
             pass
 
@@ -232,8 +241,8 @@ class SimpleCache(object):
     def get_json(self, key):
         return json.loads(self.get(key))
 
-    def get_pickle(self, key):
-        return pickle.loads(self.get(key))
+    def get_pickle(self, key, encoding='iso-8859-1'):
+        return pickle.loads(self.get(key).encode(encoding))
 
     def mget_json(self, keys):
         """
@@ -276,7 +285,6 @@ class SimpleCache(object):
     def keys(self):
         return self.connection.smembers(self.get_set_name())
 
-
     def flush(self):
         keys = list(self.keys())
         keys.append(self.get_set_name())
@@ -290,7 +298,7 @@ class SimpleCache(object):
         keys = list(self.connection.keys(namespace))
         with self.connection.pipeline() as pipe:
             pipe.delete(*keys)
-            pipe.srem(setname, *space)
+            pipe.srem(setname, *[key for key in self.keys() if key[:key.find(':')] == space])
             pipe.execute()
 
     def get_hash(self, args):
@@ -363,7 +371,6 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
             return result
         return func
     return decorator
-
 
 
 def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None):
