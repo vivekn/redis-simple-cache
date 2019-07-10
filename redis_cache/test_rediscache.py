@@ -1,7 +1,7 @@
 # SimpleCache Tests
 # ~~~~~~~~~~~~~~~~~~~
 from datetime import timedelta
-from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
+from redis_cache.rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
 
@@ -21,6 +21,7 @@ class SimpleCacheTest(TestCase):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
         self.assertIsNotNone(self.c.connection)
         self.redis = RedisConnect().connect()
+
     def test_expire(self):
         quick_c = SimpleCache()
 
@@ -295,6 +296,3 @@ class SimpleCacheTest(TestCase):
 
     def tearDown(self):
         self.c.flush()
-
-
-main()
