@@ -298,7 +298,7 @@ class SimpleCache(object):
         keys = list(self.connection.keys(namespace))
         with self.connection.pipeline() as pipe:
             pipe.delete(*keys)
-            pipe.srem(setname, *space)
+            pipe.srem(setname, *[key for key in self.keys() if key[:key.find(':')] == space])
             pipe.execute()
 
     def get_hash(self, args):
