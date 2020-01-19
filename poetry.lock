@@ -1,0 +1,93 @@
+[[package]]
+category = "main"
+description = "Cryptographic modules for Python."
+name = "pycrypto"
+optional = false
+python-versions = "*"
+version = "2.6.1"
+
+[[package]]
+category = "main"
+description = "Lock context manager implemented via redis SETNX/BLPOP."
+name = "python-redis-lock"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+version = "3.5.0"
+
+[package.dependencies]
+redis = ">=2.10.0"
+
+[package.extras]
+django = ["django-redis (>=3.8.0)"]
+
+[[package]]
+category = "main"
+description = "Python client for Redis key-value store"
+name = "redis"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "3.3.11"
+
+[package.extras]
+hiredis = ["hiredis (>=0.1.3)"]
+
+[[package]]
+category = "main"
+description = "A data caching implemention based on Redis and redis_structures."
+name = "redis-cache"
+optional = false
+python-versions = "*"
+version = "0.1.5"
+
+[package.dependencies]
+python-redis-lock = "*"
+redis_structures = "*"
+vital-tools = "*"
+
+[[package]]
+category = "main"
+description = "Redis data structures wrapped with Python 3."
+name = "redis-structures"
+optional = false
+python-versions = "*"
+version = "0.1.7"
+
+[package.dependencies]
+redis = "*"
+
+[[package]]
+category = "main"
+description = "Vital tools for writing Python 3.4+ packages."
+name = "vital-tools"
+optional = false
+python-versions = "*"
+version = "0.1.13"
+
+[package.dependencies]
+pycrypto = "*"
+
+[metadata]
+content-hash = "8fbb98a0c5cad6ec5b24d4f371c036f84177ba396e9c10eac80bb293e87c53b0"
+python-versions = ">=3.6"
+
+[metadata.files]
+pycrypto = [
+    {file = "pycrypto-2.6.1.tar.gz", hash = "sha256:f2ce1e989b272cfcb677616763e0a2e7ec659effa67a88aa92b3a65528f60a3c"},
+]
+python-redis-lock = [
+    {file = "python-redis-lock-3.5.0.tar.gz", hash = "sha256:06f28f63bf4ea3d739ff5c472e76563e24aa5c887002a85cbdb7a5b13aa05897"},
+    {file = "python_redis_lock-3.5.0-py2.py3-none-any.whl", hash = "sha256:910ac3c429c2eee4f9f3d6733bc4c722e024e00b887379aefa52ae9376a759b4"},
+]
+redis = [
+    {file = "redis-3.3.11-py2.py3-none-any.whl", hash = "sha256:3613daad9ce5951e426f460deddd5caf469e08a3af633e9578fc77d362becf62"},
+    {file = "redis-3.3.11.tar.gz", hash = "sha256:8d0fc278d3f5e1249967cba2eb4a5632d19e45ce5c09442b8422d15ee2c22cc2"},
+]
+redis-cache = [
+    {file = "redis-cache-0.1.5.tar.gz", hash = "sha256:cd138557d61f3cc04c3cffabc114b0b1d5fef0349c0838aa19cc984e51c9a5d5"},
+]
+redis-structures = [
+    {file = "redis_structures-0.1.7.tar.gz", hash = "sha256:0771324fe348583ffdf7025e4034d8da939435e62bac3a1016216fb89b8e25ff"},
+]
+vital-tools = [
+    {file = "vital-tools-0.1.13.tar.gz", hash = "sha256:72d0fbcc5a16e5c7b1971d7020ed4326144a9a34a37d69bbc2ddc945eaf9cc6d"},
+]
