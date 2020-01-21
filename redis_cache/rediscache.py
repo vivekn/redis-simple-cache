@@ -8,6 +8,8 @@ import hashlib
 import redis
 import logging
 
+from redis._compat import basestring, unicode
+
 DEFAULT_EXPIRY = 60 * 60 * 24
 
 
@@ -40,7 +42,9 @@ class RedisConnect(object):
         return redis.StrictRedis(host=self.host,
                                  port=self.port,
                                  db=self.db,
-                                 password=self.password)
+                                 password=self.password,
+                                 charset="iso-8859-1",
+                                 decode_responses=True)
 
 
 class CacheMissException(Exception):
@@ -90,7 +94,7 @@ class SimpleCache(object):
                                            port=self.port,
                                            db=self.db,
                                            password=password).connect()
-        except RedisNoConnException, e:
+        except RedisNoConnException as e:
             self.connection = None
             pass
 
@@ -233,7 +237,7 @@ class SimpleCache(object):
         return json.loads(self.get(key))
 
     def get_pickle(self, key):
-        return pickle.loads(self.get(key))
+        return pickle.loads(self.get(key).encode("iso-8859-1"))
 
     def mget_json(self, keys):
         """
