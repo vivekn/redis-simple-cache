@@ -57,6 +57,10 @@ class RedisNoConnException(Exception):
     pass
 
 
+class FailOverHostException(Exception):
+    pass
+
+
 class DoNotCache(Exception):
     _result = None
 
@@ -217,6 +221,11 @@ class SimpleCache(object):
                 try:
                     self.connection.srem(self.get_set_name(), key)
                 except ReadOnlyError:
+                    if self.failoverhost is None:
+                        raise FailOverHostException("Failed to create connection to redis (failover), failoverhost is None",
+                                       (self.host,
+                                        self.port)
+                                    )
                     # Connect to the failover write node
                     self.connection = RedisConnect(host=self.failoverhost,
                                                    port=self.port,
