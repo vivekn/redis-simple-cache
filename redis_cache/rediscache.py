@@ -6,6 +6,7 @@ import pickle
 import json
 import hashlib
 import redis
+from redis.exceptions import ReadOnlyError
 import logging
 
 DEFAULT_EXPIRY = 60 * 60 * 24
@@ -79,7 +80,8 @@ class SimpleCache(object):
                  password=None,
                  ssl=False,
                  client=None,
-                 namespace="SimpleCache"):
+                 namespace="SimpleCache",
+                 failoverhost=None):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -87,6 +89,7 @@ class SimpleCache(object):
         self.host = host
         self.port = port
         self.db = db
+        self.failoverhost = failoverhost
 
         try:
             if client:
@@ -211,8 +214,16 @@ class SimpleCache(object):
             if value is None:  # expired key
                 if not key in self:  # If key does not exist at all, it is a straight miss.
                     raise CacheMissException
-
-                self.connection.srem(self.get_set_name(), key)
+                try:
+                    self.connection.srem(self.get_set_name(), key)
+                except ReadOnlyError:
+                    # Connect to the failover write node
+                    self.connection = RedisConnect(host=self.failoverhost,
+                                                   port=self.port,
+                                                   db=self.db,
+                                                   password=password,
+                                                   ssl=ssl).connect()
+                    self.connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
             else:
                 return value
