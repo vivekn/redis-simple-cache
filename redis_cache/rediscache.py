@@ -94,6 +94,7 @@ class SimpleCache(object):
         self.port = port
         self.db = db
         self.password = password,
+        self.ssl = ssl,
         self.failoverhost = failoverhost
 
         try:
@@ -232,7 +233,7 @@ class SimpleCache(object):
                                                    port=self.port,
                                                    db=self.db,
                                                    password=self.password,
-                                                   ssl=ssl).connect()
+                                                   ssl=self.ssl).connect()
                     self.connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
             else:
