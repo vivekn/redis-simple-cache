@@ -93,6 +93,7 @@ class SimpleCache(object):
         self.host = host
         self.port = port
         self.db = db
+        self.password = password,
         self.failoverhost = failoverhost
 
         try:
@@ -102,7 +103,7 @@ class SimpleCache(object):
                 self.connection = RedisConnect(host=self.host,
                                                port=self.port,
                                                db=self.db,
-                                               password=password,
+                                               password=self.password,
                                                ssl=ssl).connect()
         except RedisNoConnException, e:
             self.connection = None
@@ -230,7 +231,7 @@ class SimpleCache(object):
                     self.connection = RedisConnect(host=self.failoverhost,
                                                    port=self.port,
                                                    db=self.db,
-                                                   password=password,
+                                                   password=self.password,
                                                    ssl=ssl).connect()
                     self.connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
