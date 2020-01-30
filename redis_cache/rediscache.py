@@ -93,8 +93,8 @@ class SimpleCache(object):
         self.host = host
         self.port = port
         self.db = db
-        self.password = password,
-        self.ssl = ssl,
+        self.password = password
+        self.ssl = ssl
         self.failoverhost = failoverhost
 
         try:
