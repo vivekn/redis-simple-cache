@@ -6,7 +6,6 @@ import pickle
 import json
 import hashlib
 import redis
-from redis.exceptions import ReadOnlyError
 import logging
 
 DEFAULT_EXPIRY = 60 * 60 * 24
@@ -222,8 +221,7 @@ class SimpleCache(object):
             if value is None:  # expired key
                 if not key in self:  # If key does not exist at all, it is a straight miss.
                     raise CacheMissException
-                try:
-                    self.write_connection.srem(self.get_set_name(), key)
+                self.write_connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
             else:
                 return value
