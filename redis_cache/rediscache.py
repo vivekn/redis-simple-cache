@@ -340,7 +340,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
         @wraps(function)
         def func(*args, **kwargs):
             ## Handle cases where caching is down or otherwise not available.
-            if cache.connection is None:
+            if cache.write_connection is None:
                 result = function(*args, **kwargs)
                 return result
 
