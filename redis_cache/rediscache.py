@@ -108,7 +108,7 @@ class SimpleCache(object):
                                                ssl=self.ssl).connect()
         except RedisNoConnException, e:
             self.write_connection = None
-            self.read_only_host = None
+            self.read_connection = None
             pass
 
         # Should we hash keys? There is a very small risk of collision involved.
