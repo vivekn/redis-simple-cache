@@ -55,7 +55,6 @@ class ExpiredKeyException(Exception):
 class RedisNoConnException(Exception):
     pass
 
-
 class DoNotCache(Exception):
     _result = None
 
@@ -79,7 +78,8 @@ class SimpleCache(object):
                  password=None,
                  ssl=False,
                  client=None,
-                 namespace="SimpleCache"):
+                 namespace="SimpleCache",
+                 read_only_host=None):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -87,21 +87,31 @@ class SimpleCache(object):
         self.host = host
         self.port = port
         self.db = db
+        self.password = password
+        self.ssl = ssl
+        self.read_only_host = read_only_host
 
         try:
             if client:
-                self.connection = client
+                self.write_connection = client
             else:
-                self.connection = RedisConnect(host=self.host,
+                self.write_connection = RedisConnect(host=self.host,
                                                port=self.port,
                                                db=self.db,
-                                               password=password,
-                                               ssl=ssl).connect()
+                                               password=self.password,
+                                               ssl=self.ssl).connect()
+
+            self.read_connection = RedisConnect(host=self.read_only_host,
+                                               port=self.port,
+                                               db=self.db,
+                                               password=self.password,
+                                               ssl=self.ssl).connect()
         except RedisNoConnException, e:
-            self.connection = None
+            self.write_connection = None
+            self.read_connection = None
             pass
 
-        # Should we hash keys? There is a very small risk of collision invloved.
+        # Should we hash keys? There is a very small risk of collision involved.
         self.hashkeys = hashkeys
 
     def make_key(self, key):
@@ -125,11 +135,11 @@ class SimpleCache(object):
         value = to_unicode(value)
         set_name = self.get_set_name()
 
-        while self.connection.scard(set_name) >= self.limit:
-            del_key = self.connection.spop(set_name)
-            self.connection.delete(self.make_key(del_key))
+        while self.write_connection.scard(set_name) >= self.limit:
+            del_key = self.write_connection.spop(set_name)
+            self.write_connection.delete(self.make_key(del_key))
 
-        pipe = self.connection.pipeline()
+        pipe = self.write_connection.pipeline()
         if expire is None:
             expire = self.expire
 
@@ -156,7 +166,7 @@ class SimpleCache(object):
         all_members = self.keys()
         keys  = [self.make_key(k) for k in all_members]
 
-        with self.connection.pipeline() as pipe:
+        with self.write_connection.pipeline() as pipe:
             pipe.delete(*keys)
             pipe.execute()
 
@@ -174,8 +184,8 @@ class SimpleCache(object):
         :return: int, int
         """
         namespace = self.namespace_key(namespace)
-        all_members = list(self.connection.keys(namespace))
-        with self.connection.pipeline() as pipe:
+        all_members = list(self.read_connection.keys(namespace))
+        with self.write_connection.pipeline() as pipe:
             pipe.delete(*all_members)
             pipe.execute()
 
@@ -188,15 +198,15 @@ class SimpleCache(object):
         :param key: key being looked-up in Redis
         :return: bool (True) if expired, or int representing current time-to-live (ttl) value
         """
-        ttl = self.connection.pttl("SimpleCache-{0}".format(key))
+        ttl = self.read_connection.pttl("SimpleCache-{0}".format(key))
         if ttl == -2: # not exist
-            ttl = self.connection.pttl(self.make_key(key))
+            ttl = self.read_connection.pttl(self.make_key(key))
         elif ttl == -1:
             return True
         if not ttl is None:
             return ttl
         else:
-            return self.connection.pttl("{0}:{1}".format(self.prefix, key))
+            return self.read_connection.pttl("{0}:{1}".format(self.prefix, key))
 
     def store_json(self, key, value, expire=None):
         self.store(key, json.dumps(value), expire)
@@ -207,12 +217,11 @@ class SimpleCache(object):
     def get(self, key):
         key = to_unicode(key)
         if key:  # No need to validate membership, which is an O(1) operation, but seems we can do without.
-            value = self.connection.get(self.make_key(key))
+            value = self.read_connection.get(self.make_key(key))
             if value is None:  # expired key
                 if not key in self:  # If key does not exist at all, it is a straight miss.
                     raise CacheMissException
-
-                self.connection.srem(self.get_set_name(), key)
+                self.write_connection.srem(self.get_set_name(), key)
                 raise ExpiredKeyException
             else:
                 return value
@@ -225,10 +234,10 @@ class SimpleCache(object):
         """
         if keys:
             cache_keys = [self.make_key(to_unicode(key)) for key in keys]
-            values = self.connection.mget(cache_keys)
+            values = self.read_connection.mget(cache_keys)
 
             if None in values:
-                pipe = self.connection.pipeline()
+                pipe = self.write_connection.pipeline()
                 for cache_key, value in zip(cache_keys, values):
                     if value is None:  # non-existant or expired key
                         pipe.srem(self.get_set_name(), cache_key)
@@ -261,41 +270,41 @@ class SimpleCache(object):
         :param key: key to remove from Redis
         """
         key = to_unicode(key)
-        pipe = self.connection.pipeline()
+        pipe = self.write_connection.pipeline()
         pipe.srem(self.get_set_name(), key)
         pipe.delete(self.make_key(key))
         pipe.execute()
 
     def __contains__(self, key):
-        return self.connection.sismember(self.get_set_name(), key)
+        return self.read_connection.sismember(self.get_set_name(), key)
 
     def __iter__(self):
-        if not self.connection:
+        if not self.read_connection:
             return iter([])
         return iter(
             ["{0}:{1}".format(self.prefix, x)
-                for x in self.connection.smembers(self.get_set_name())
+                for x in self.read_connection.smembers(self.get_set_name())
             ])
 
     def __len__(self):
-        return self.connection.scard(self.get_set_name())
+        return self.read_connection.scard(self.get_set_name())
 
     def keys(self):
-        return self.connection.smembers(self.get_set_name())
+        return self.read_connection.smembers(self.get_set_name())
 
 
     def flush(self):
         keys = list(self.keys())
         keys.append(self.get_set_name())
-        with self.connection.pipeline() as pipe:
+        with self.write_connection.pipeline() as pipe:
             pipe.delete(*keys)
             pipe.execute()
 
     def flush_namespace(self, space):
         namespace = self.namespace_key(space)
         setname = self.get_set_name()
-        keys = list(self.connection.keys(namespace))
-        with self.connection.pipeline() as pipe:
+        keys = list(self.read_connection.keys(namespace))
+        with self.write_connection.pipeline() as pipe:
             pipe.delete(*keys)
             pipe.srem(setname, *space)
             pipe.execute()
@@ -331,7 +340,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
         @wraps(function)
         def func(*args, **kwargs):
             ## Handle cases where caching is down or otherwise not available.
-            if cache.connection is None:
+            if cache.write_connection is None:
                 result = function(*args, **kwargs)
                 return result
 
