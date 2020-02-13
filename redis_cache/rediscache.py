@@ -79,7 +79,8 @@ class SimpleCache(object):
                  ssl=False,
                  client=None,
                  namespace="SimpleCache",
-                 read_only_host=None):
+                 read_only_host=None,
+                 read_client=None):
 
         self.limit = limit  # No of json encoded strings to cache
         self.expire = expire  # Time to keys to expire in seconds
@@ -92,8 +93,9 @@ class SimpleCache(object):
         self.read_only_host = read_only_host
 
         try:
-            if client:
+            if client and read_client:
                 self.write_connection = client
+                self.read_connection = read_client
             else:
                 self.write_connection = RedisConnect(host=self.host,
                                                port=self.port,
@@ -101,7 +103,7 @@ class SimpleCache(object):
                                                password=self.password,
                                                ssl=self.ssl).connect()
 
-            self.read_connection = RedisConnect(host=self.read_only_host,
+                self.read_connection = RedisConnect(host=self.read_only_host,
                                                port=self.port,
                                                db=self.db,
                                                password=self.password,
@@ -113,6 +115,12 @@ class SimpleCache(object):
 
         # Should we hash keys? There is a very small risk of collision involved.
         self.hashkeys = hashkeys
+    
+    def get_pipeline(self, mode="write"):
+        if mode == "read":
+            return self.read_connection.pipeline()
+        else:
+            return self.write_connection.pipeline()
 
     def make_key(self, key):
         return "SimpleCache-{0}:{1}".format(self.prefix, key)
@@ -139,7 +147,7 @@ class SimpleCache(object):
             del_key = self.write_connection.spop(set_name)
             self.write_connection.delete(self.make_key(del_key))
 
-        pipe = self.write_connection.pipeline()
+        pipe = self.get_pipeline(mode="write")
         if expire is None:
             expire = self.expire
 
@@ -166,7 +174,7 @@ class SimpleCache(object):
         all_members = self.keys()
         keys  = [self.make_key(k) for k in all_members]
 
-        with self.write_connection.pipeline() as pipe:
+        with self.get_pipeline(mode="write") as pipe:
             pipe.delete(*keys)
             pipe.execute()
 
@@ -185,7 +193,7 @@ class SimpleCache(object):
         """
         namespace = self.namespace_key(namespace)
         all_members = list(self.read_connection.keys(namespace))
-        with self.write_connection.pipeline() as pipe:
+        with self.get_pipeline(mode="write") as pipe:
             pipe.delete(*all_members)
             pipe.execute()
 
@@ -237,7 +245,7 @@ class SimpleCache(object):
             values = self.read_connection.mget(cache_keys)
 
             if None in values:
-                pipe = self.write_connection.pipeline()
+                pipe = self.get_pipeline(mode="write")
                 for cache_key, value in zip(cache_keys, values):
                     if value is None:  # non-existant or expired key
                         pipe.srem(self.get_set_name(), cache_key)
@@ -270,7 +278,7 @@ class SimpleCache(object):
         :param key: key to remove from Redis
         """
         key = to_unicode(key)
-        pipe = self.write_connection.pipeline()
+        pipe = self.get_pipeline(mode="write")
         pipe.srem(self.get_set_name(), key)
         pipe.delete(self.make_key(key))
         pipe.execute()
@@ -296,7 +304,7 @@ class SimpleCache(object):
     def flush(self):
         keys = list(self.keys())
         keys.append(self.get_set_name())
-        with self.write_connection.pipeline() as pipe:
+        with self.get_pipeline(mode="write") as pipe:
             pipe.delete(*keys)
             pipe.execute()
 
@@ -304,7 +312,7 @@ class SimpleCache(object):
         namespace = self.namespace_key(space)
         setname = self.get_set_name()
         keys = list(self.read_connection.keys(namespace))
-        with self.write_connection.pipeline() as pipe:
+        with self.get_pipeline(mode="write") as pipe:
             pipe.delete(*keys)
             pipe.srem(setname, *space)
             pipe.execute()
