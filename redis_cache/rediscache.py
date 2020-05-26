@@ -93,9 +93,8 @@ class SimpleCache(object):
         self.read_only_host = read_only_host
 
         try:
-            if client and read_client:
+            if client:
                 self.write_connection = client
-                self.read_connection = read_client
             else:
                 self.write_connection = RedisConnect(host=self.host,
                                                port=self.port,
@@ -103,15 +102,20 @@ class SimpleCache(object):
                                                password=self.password,
                                                ssl=self.ssl).connect()
 
+        except RedisNoConnException, e:
+            self.write_connection = None
+
+        try:
+            if read_client:
+                self.read_connection = read_client
+            else:
                 self.read_connection = RedisConnect(host=self.read_only_host,
                                                port=self.port,
                                                db=self.db,
                                                password=self.password,
                                                ssl=self.ssl).connect()
         except RedisNoConnException, e:
-            self.write_connection = None
             self.read_connection = None
-            pass
 
         # Should we hash keys? There is a very small risk of collision involved.
         self.hashkeys = hashkeys
