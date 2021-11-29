@@ -296,3 +296,7 @@ class SimpleCacheTest(TestCase):
 
     def tearDown(self):
         self.c.flush()
+
+
+main()
+

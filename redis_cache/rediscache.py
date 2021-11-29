@@ -6,8 +6,12 @@ import pickle
 import json
 import hashlib
 import redis
-from redis._compat import unicode, basestring
 import logging
+import sys
+
+if sys.version_info[0] >= 3:  # Maintain support for python 2.x
+    basestring = str
+    unicode = str
 
 DEFAULT_EXPIRY = 60 * 60 * 24
 
