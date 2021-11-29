@@ -1,9 +1,10 @@
-#SimpleCache Tests
-#~~~~~~~~~~~~~~~~~~~
+# SimpleCache Tests
+# ~~~~~~~~~~~~~~~~~~~
 from datetime import timedelta
-from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
+from redis_cache.rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
+
 
 class ComplexNumber(object):  # used in pickle test
     def __init__(self, real, imag):
@@ -20,6 +21,7 @@ class SimpleCacheTest(TestCase):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
         self.assertIsNotNone(self.c.connection)
         self.redis = RedisConnect().connect()
+
     def test_expire(self):
         quick_c = SimpleCache()
 
@@ -189,7 +191,7 @@ class SimpleCacheTest(TestCase):
         connection.delete("will_not_be_deleted")
 
     def test_flush_namespace(self):
-    	self.redis.flushall()
+        self.redis.flushall()
         self.c.store("foo:one", "bir")
         self.c.store("foo:two", "bor")
         self.c.store("fii", "bur")
@@ -295,4 +297,6 @@ class SimpleCacheTest(TestCase):
     def tearDown(self):
         self.c.flush()
 
+
 main()
+
