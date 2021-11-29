@@ -7,7 +7,7 @@ Original package is located here: https://github.com/vivekn/redis-simple-cache
 
 Requirements:
 -------------
-redis 3.2.1
+redis 4.0.0
 
 Installation:
 -------------
@@ -16,8 +16,8 @@ Installation:
 
 or to get the latest version
 
-    git clone git://github.com/ohanetz/redis-simple-cache.git
-    cd redis-simple-cache
+    git clone git://github.com/ohanetz/redis-simple-cache-3k.git
+    cd redis-simple-cache-3k
     python setup.py install
 
 Usage:
@@ -91,6 +91,6 @@ Robert Marshall
 Ben Hayden
 
 
-Python 3 support added by Omer Hanetz
+Python 3 and Redis 4 support added by Omer Hanetz
 
 LICENSE: BSD
