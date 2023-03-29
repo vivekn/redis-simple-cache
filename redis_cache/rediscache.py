@@ -7,6 +7,7 @@ import json
 import hashlib
 import redis
 import logging
+import six
 
 DEFAULT_EXPIRY = 60 * 60 * 24
 
@@ -102,7 +103,7 @@ class SimpleCache(object):
                                                password=self.password,
                                                ssl=self.ssl).connect()
 
-        except RedisNoConnException, e:
+        except RedisNoConnException:
             self.write_connection = None
 
         try:
@@ -114,7 +115,7 @@ class SimpleCache(object):
                                                db=self.db,
                                                password=self.password,
                                                ssl=self.ssl).connect()
-        except RedisNoConnException, e:
+        except RedisNoConnException:
             self.read_connection = None
 
         # Should we hash keys? There is a very small risk of collision involved.
@@ -393,7 +394,6 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     return decorator
 
 
-
 def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None):
     """
     Arguments and function result must be able to convert to JSON.
@@ -407,7 +407,6 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
 
 
 def to_unicode(obj, encoding='utf-8'):
-    if isinstance(obj, basestring):
-        if not isinstance(obj, unicode):
-            obj = unicode(obj, encoding)
+    if isinstance(obj, six.string_types):
+        obj = str(obj, encoding)
     return obj
