@@ -1,9 +1,13 @@
-#SimpleCache Tests
-#~~~~~~~~~~~~~~~~~~~
+# SimpleCache Tests
+# ~~~~~~~~~~~~~~~~~~~
+
+from __future__ import absolute_import, division
 from datetime import timedelta
-from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, CacheMissException, ExpiredKeyException, DoNotCache
+from rediscache import SimpleCache, RedisConnect, cache_it, cache_it_json, \
+    CacheMissException, ExpiredKeyException, DoNotCache
 from unittest import TestCase, main
 import time
+
 
 class ComplexNumber(object):  # used in pickle test
     def __init__(self, real, imag):
@@ -13,6 +17,9 @@ class ComplexNumber(object):  # used in pickle test
     def __eq__(self, other):
         return self.real == other.real and self.imag == other.imag
 
+    def __hash__(self):
+        return hash((self.real, self.imag))
+
 
 class SimpleCacheTest(TestCase):
 
@@ -20,6 +27,7 @@ class SimpleCacheTest(TestCase):
         self.c = SimpleCache(10)  # Cache that has a maximum limit of 10 keys
         self.assertIsNotNone(self.c.connection)
         self.redis = RedisConnect().connect()
+
     def test_expire(self):
         quick_c = SimpleCache()
 
@@ -65,6 +73,7 @@ class SimpleCacheTest(TestCase):
     def test_decorator(self):
         self.redis.flushall()
         mutable = []
+
         @cache_it(cache=self.c)
         def append(n):
             mutable.append(n)
@@ -142,6 +151,7 @@ class SimpleCacheTest(TestCase):
         import random
 
         mutable = {}
+
         @cache_it_json(cache=self.c)
         def set_key(n):
             mutable[str(random.random())] = n
@@ -160,11 +170,11 @@ class SimpleCacheTest(TestCase):
         @cache_it(cache=self.c)
         def add(x, y):
             return ComplexNumber(x.real + y.real, x.imag + y.imag)
-        result = add(ComplexNumber(3,4), ComplexNumber(4,5))
-        result_cached = add(ComplexNumber(3,4), ComplexNumber(4,5))
+        result = add(ComplexNumber(3, 4), ComplexNumber(4, 5))
+        result_cached = add(ComplexNumber(3, 4), ComplexNumber(4, 5))
         self.assertNotEqual(id(result), id(result_cached))
         self.assertEqual(result, result_cached)
-        self.assertEqual(result, complex(3,4) + complex(4,5))
+        self.assertEqual(result, complex(3, 4) + complex(4, 5))
 
     def test_cache_limit(self):
         for i in range(100):
@@ -189,7 +199,7 @@ class SimpleCacheTest(TestCase):
         connection.delete("will_not_be_deleted")
 
     def test_flush_namespace(self):
-    	self.redis.flushall()
+        self.redis.flushall()
         self.c.store("foo:one", "bir")
         self.c.store("foo:two", "bor")
         self.c.store("fii", "bur")
@@ -294,5 +304,6 @@ class SimpleCacheTest(TestCase):
 
     def tearDown(self):
         self.c.flush()
+
 
 main()

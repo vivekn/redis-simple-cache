@@ -1,9 +1,13 @@
-#coding=utf-8
+# coding=utf-8
+
+from __future__ import absolute_import
 import os
 from setuptools import setup
 
+
 def openf(fname):
     return open(os.path.join(os.path.dirname(__file__), fname))
+
 
 setup(
     name="redis-simple-cache",

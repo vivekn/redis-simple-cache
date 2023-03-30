@@ -1,12 +1,14 @@
 """
 A simple redis-cache interface for storing python objects.
 """
+from __future__ import absolute_import
 from functools import wraps
 import pickle
 import json
 import hashlib
 import redis
 import logging
+import six
 
 DEFAULT_EXPIRY = 60 * 60 * 24
 
@@ -37,7 +39,7 @@ class RedisConnect(object):
             raise RedisNoConnException("Failed to create connection to redis",
                                        (self.host,
                                         self.port)
-            )
+                                       )
         return redis.StrictRedis(host=self.host,
                                  port=self.port,
                                  db=self.db,
@@ -54,6 +56,7 @@ class ExpiredKeyException(Exception):
 
 class RedisNoConnException(Exception):
     pass
+
 
 class DoNotCache(Exception):
     _result = None
@@ -102,7 +105,7 @@ class SimpleCache(object):
                                                password=self.password,
                                                ssl=self.ssl).connect()
 
-        except RedisNoConnException, e:
+        except RedisNoConnException:
             self.write_connection = None
 
         try:
@@ -114,7 +117,7 @@ class SimpleCache(object):
                                                db=self.db,
                                                password=self.password,
                                                ssl=self.ssl).connect()
-        except RedisNoConnException, e:
+        except RedisNoConnException:
             self.read_connection = None
 
         # Should we hash keys? There is a very small risk of collision involved.
@@ -163,7 +166,6 @@ class SimpleCache(object):
         pipe.sadd(set_name, key)
         pipe.execute()
 
-
     def expire_all_in_set(self):
         """
         Method expires all keys in the namespace of this object.
@@ -176,7 +178,7 @@ class SimpleCache(object):
         :return: int, int
         """
         all_members = self.keys()
-        keys  = [self.make_key(k) for k in all_members]
+        keys = [self.make_key(k) for k in all_members]
 
         with self.get_pipeline(mode="write") as pipe:
             pipe.delete(*keys)
@@ -304,7 +306,6 @@ class SimpleCache(object):
     def keys(self):
         return self.read_connection.smembers(self.get_set_name())
 
-
     def flush(self):
         keys = list(self.keys())
         keys.append(self.get_set_name())
@@ -338,8 +339,9 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     :param cache: SimpleCache object, if created separately
     :return: decorated function
     """
-    cache_ = cache  ## Since python 2.x doesn't have the nonlocal keyword, we need to do this
-    expire_ = expire  ## Same here.
+    cache_ = cache  # Since python 2.x doesn't have the nonlocal keyword, we need to do this
+    expire_ = expire  # Same here.
+
     def decorator(function):
         cache, expire = cache_, expire_
         if cache is None:
@@ -351,7 +353,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
 
         @wraps(function)
         def func(*args, **kwargs):
-            ## Handle cases where caching is down or otherwise not available.
+            # Handle cases where caching is down or otherwise not available.
             if cache.write_connection is None:
                 result = function(*args, **kwargs)
                 return result
@@ -360,8 +362,8 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
             fetcher = cache.get_json if use_json else cache.get_pickle
             storer = cache.store_json if use_json else cache.store_pickle
 
-            ## Key will be either a md5 hash or just pickle object,
-            ## in the form of `function name`:`key`
+            # Key will be either a md5 hash or just pickle object,
+            # in the form of `function name`:`key`
             key = cache.get_hash(serializer.dumps([args, kwargs]))
             cache_key = '{func_name}:{key}'.format(func_name=function.__name__,
                                                    key=key)
@@ -373,7 +375,7 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
             try:
                 return fetcher(cache_key)
             except (ExpiredKeyException, CacheMissException) as e:
-                ## Add some sort of cache miss handing here.
+                # Add some sort of cache miss handing here.
                 pass
             except:
                 logging.exception("Unknown redis-simple-cache error. Please check your Redis free space.")
@@ -393,7 +395,6 @@ def cache_it(limit=10000, expire=DEFAULT_EXPIRY, cache=None,
     return decorator
 
 
-
 def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None):
     """
     Arguments and function result must be able to convert to JSON.
@@ -407,7 +408,7 @@ def cache_it_json(limit=10000, expire=DEFAULT_EXPIRY, cache=None, namespace=None
 
 
 def to_unicode(obj, encoding='utf-8'):
-    if isinstance(obj, basestring):
-        if not isinstance(obj, unicode):
-            obj = unicode(obj, encoding)
+    if isinstance(obj, six.string_types):
+        if not isinstance(obj, six.text_type):
+            obj = six.text_type(obj, encoding)
     return obj
